@@ -1,0 +1,119 @@
+SameBoy Qt 通用调试接口（协议版本 1）
+
+启用方式
+启动 sameboy-qt.exe --debug-server [ROM路径] 启用接口；已有进程运行时会通过 IPC 通知它启用。
+默认关闭，不记住服务启用状态，没有专用菜单项。启用时会开启原生 Developer Mode。
+关闭 Developer Mode 会关闭接口；再次运行 --debug-server 可重新开启。
+这是当前用户的本地 IPC，不监听 TCP/HTTP。能连接端点的同用户程序可以修改游戏内存、输入和存档。
+同一用户的多个客户端可以连接；操作按模拟线程顺序执行，自动化任务应自行协调。
+
+主程序同时提供命令行客户端模式。启用接口并打开 ROM 后：
+  sameboy-qt.exe --rpc rpc.discover
+  sameboy-qt.exe --rpc windows.list
+  sameboy-qt.exe --rpc debug.break
+  sameboy-qt.exe --rpc debug.command '{"command":"step"}'
+  sameboy-qt.exe --rpc memory.read '{"address":49152,"count":16}'
+在 PowerShell 中，避免旧版本原生命令参数转义问题，可使用标准输入：
+  '{"jsonrpc":"2.0","id":1,"method":"debug.status","params":{}}' | .\sameboy-qt.exe --rpc --stdin
+可通过 --endpoint NAME 指定端点。退出码 0 成功，1 RPC 错误，2 连接/客户端错误。
+CLI 参数使用 UTF-8 JSON；直接接入时每行发送一个 JSON-RPC 2.0 对象并读取一行响应。
+请求必须有 string/number id，params 必须为对象，不支持无 id 通知或批量数组。
+
+目标与时效
+windows.list 返回窗口 id、generation、rom、paused、debuggerStopped、developerMode、linked、gbs。
+每个操作可带 window 和 generation；只有一个已加载 ROM 的窗口时可以省略 window。
+加载新 ROM、热交换或关闭窗口会使旧 generation 失效。建议始终携带二者，防止操作到新游戏。
+ROM 通过 GUI、拖放或启动程序参数打开；接口本身没有任意文件打开/执行功能。
+
+方法及 params（JSON 数字均为十进制）
+- rpc.discover / windows.list：无参数。
+- debug.status / registers.read：寄存器 af/bc/de/hl/sp/pc、停止状态、CPU 使用率、completedCommand。
+- debug.break：请求原生调试器 interrupt。
+- debug.command：command 为一条 SameBoy 原生命令，例如 registers、step、next、finish、continue、breakpoint。
+  返回 accepted、commandId、afterLog；表示已入队，之后轮询 debug.status 和 debug.logs。
+  completedCommand 表示命令已处理并返回下一次输入检查；next/finish 等仍可能在等待目标断点。
+  以 debuggerStopped、寄存器及日志共同判断执行结果。命令语法参见 https://sameboy.github.io/debugger/ 。
+- debug.logs：after 日志序号，limit 1..1000（默认 500）。响应 next 用于下次 after。
+  latest 为整个缓冲区最新序号；truncated 表示旧日志已被淘汰。GUI 清空控制台不消耗 AI 日志。
+- debug.evaluate：expression，支持原生符号、表达式及赋值（如 pc=$150）。返回 value、bank（无 bank 为 -1）。
+- memory.read：address、count（默认 1，最多 4096）、space（默认 entire）、bank（默认 0）。返回 hex。
+- memory.write：address、hex（连续偶数个十六进制字符），space、bank 同上；最多 4096 字节。
+  space 是 entire、rom、vram、cartridge、ram。地址为 CPU 地址，bank 必须在实际范围内。
+  entire 使用映射内存；其他空间对应内存查看器的银行布局。读无副作用，写 I/O 使用核心接口。
+- screen.capture：返回未经显示滤镜缩放的核心图像 PNG，base64、width、height。
+- input.set：buttons 数组（right/left/up/down/a/b/select/start）、player 1..4（默认 1）、ttlMs 1..5000（默认 250）。
+  替换该玩家的 AI 按键集合，和物理输入合并；超时自动释放，前台切换不阻止 AI 输入。
+- input.release：指定 player 或省略以释放全部 AI 按键。
+- emulation.pause / emulation.resume：普通模拟暂停；处于调试器停止状态时使用 continue 恢复 CPU。
+- emulation.advance：frames 1..600，等待完成后返回并暂停。要求未联机且未停在调试器中。
+- state.save / state.load：slot 1..10，使用 game.s1 等相同的 UI 存档路径，不接受外部路径。
+  load 要求相同硬件型号，文件不兼容时返回错误。
+- symbols.load：text 为 RGBDS .sym 内容，最大 256 KiB；clear 默认 false。
+  打开 ROM 自动加载同名 .sym 和硬件寄存器符号；控制台 Load Symbols 可选文件。
+
+限制与错误
+请求最多 1 MiB，待处理请求最多 128；超时 15 秒，超时不会撤销已受理的写操作。
+日志有容量限制，截图仅含最新可用核心帧。不要把高频轮询当作逐指令跟踪。
+常见错误：-32602 参数/原生命令表达式错误；-32001 无目标；-32002 ROM 已变化；-32003 状态不允许。
+确定性自动化建议：确认目标和 generation，暂停，读写/截图，优先用 emulation.step 明确指定 buttons 和 frames，再读取结果。input.set + advance 使用实际时间租约。
+
+联机、红外与打印机
+- link.connect：window 为当前窗口 id，peer 为对方窗口 id；建议带 generation、peerGeneration。
+  与 GUI 相同，同时接通连接线和红外，并断开双方原有连接/打印机；不接受自身或 GBS 窗口。
+- link.disconnect：断开当前窗口的联机，另一端也同步断开；不会断开无关联的打印机连接。
+- link.status：返回 connected、peer、peerGeneration、cable、infrared。
+- infrared.status：同上，加 supported（是否 CGB 硬件）、register（FF56 的原始值，支持时提供）。
+  红外随 link.connect 建立，不额外强制改变游戏的红外寄存器；发送/接收仍由模拟硬件驱动。
+- printer.connect / printer.disconnect / printer.status：复用 GUI 外设选择，返回 requested、connected、printing、hasFeed、height。
+  requested 是前端请求状态；connected 是模拟核心观察到的实际连接。核心会在调度点处理外设变更，
+  自动化应轮询 connected 确认完成。连接打印机会先断开联机。GBS 不支持打印机。
+- printer.capture：返回整条原始 160 像素宽纸带的 PNG/base64，尚无打印内容时返回 -32004。
+- printer.clear：清空已收到的纸带；若游戏还在打印，后续新段落仍可继续到达。
+  capture/status/clear 会先收取待显示的核心输出，和 GUI 读取的是同一条纸带。
+
+示例（先用 windows.list 获取双方 id，下面使用示意值）：
+  sameboy-qt.exe --rpc link.connect '{"window":"WINDOW_A","peer":"WINDOW_B"}'
+  sameboy-qt.exe --rpc infrared.status '{"window":"WINDOW_A"}'
+  sameboy-qt.exe --rpc printer.connect '{"window":"WINDOW_A"}'
+  sameboy-qt.exe --rpc printer.capture '{"window":"WINDOW_A"}'
+Windows PowerShell 参数转义有差异时，使用前文的 --stdin JSON 请求方式。
+
+原子逐帧操作（推荐用于自动化玩游戏）
+  sameboy-qt.exe --rpc emulation.step '{"frames":8,"buttons":["right","a"]}'
+- frames 为1..600，buttons 可省略（不按键），player 默认1，可为1..4。
+- 模拟线程设置这一次操作的按键，精确推进帧数，释放按键并暂停，再返回同一帧的 PNG/base64。
+- 执行期间使用独立输入，物理按键/真实毫秒超时不会改变这次操作的持续帧数。
+- 需要未联机且不处于调试器停止状态，不能并发多个 step。若被暂停、断点、关闭窗口等打断，会明确返回错误和已完成帧数提示。
+- 返回 frames、paused、width、height、format、base64、generation；不需要再发 screen.capture 才取得对应画面。
+- emulation.advance 保留兼容，使用同一调度路径，但按键采用当前脚本租约，并继续按其期限过期。
+- 普通模拟暂停与调试器停止仍是两种状态；从调试器恢复 CPU 应使用原生 continue。
+
+Python 只提供标准库薄示例，不是另一套模拟器或完整 SDK：
+  examples/sameboy.py
+  examples/play_example.py
+启动 --debug-server 后，可写：
+  from sameboy import SameBoy
+  game = SameBoy("C:/path/sameboy-qt.exe").window()
+  game.step(buttons=["a"], frames=8).save("step.png")
+  data = game.read_memory(0xC123, size=16)
+多个窗口时，window(id) 指定 windows.list 给出的窗口 ID。对象保留原 generation，换 ROM 后旧对象返回错误。
+薄示例每次调用主 EXE 的 --rpc --stdin，避免平台特定 IPC 依赖；适合测试/视觉模型交互，不作为高吞吐强化学习训练接口。
+安装包中的示例位于 share/examples/sameboy-qt。
+
+Lifecycle: requests targeting a window while it is closing or changing cartridges fail with JSON-RPC error -32005. Canceling a failed-save close restores normal access; clients should refresh windows.list/generation before retrying.
+
+连接与关闭
+input.set是窗口上的限时租约，CLI完成一次命令后断开连接不会提前释放它；可用input.release主动释放。
+关闭接口（包括shutdown）会释放全部脚本按键，并取消接口逐帧任务；普通游戏运行不会因此自动暂停。
+关闭客户端连接不回滚已受理操作。关闭服务会取消尚未开始的内存/存档/符号等操作；已经开始的操作允许完成，不作事务回滚。
+debug.command/debug.break同样取消尚未交给核心的旧会话命令；已经交给核心的命令允许完成。GUI控制台命令不属于接口会话。commandId仅为受理票号，completedCommand为最近已处理票号的累计游标，不能据其跨越某个旧票号推断被取消的命令执行成功；关闭服务后不要继续等待旧会话票号。
+
+按键期限使用单调时钟，在核心线程的输入采样边界检查，不依赖GUI刷新或系统日期。
+GUI短暂停顿时租约仍会过期；暂停/调试停止期间不推进CPU，恢复时不会重新激活过期租约。
+emulation.step的显式buttons按请求帧数持有，不受input.set的TTL影响；advance会保留租约期限。
+
+资源限制：最多32个同时连接的客户端，每会话最多128个未完成请求。每个模拟核心等待执行的通用命令最多256条，跨会话共享该上限；达到上限会返回Core command queue is full，不会静默丢弃或阻塞GUI等候容量。原生命令调试队列仍独立限制128条。关闭客户端可以释放连接名额。
+
+接收调度：单次事件循环最多处理32条消息，且每条处理完检查4毫秒预算（单条操作本身可能超过预算）；余下数据排入后续事件。消息组装缓冲最多1MiB加换行。收到半条消息后须在5秒内补齐，逐字节续传不会延长该帧期限；只有空闲且无半帧的持久连接不受此接收期限影响。
+
+输入与焦点：切换到工具窗口或应用失焦只清除物理输入，不会打断input.set的有效租约。脚本按键仍由原定真实时间期限、input.release、接口关闭或ROM生命周期结束释放；焦点变化不会续期。

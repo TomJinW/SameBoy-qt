@@ -1,4 +1,17 @@
 # C++ objects and libs
+/.tools/
+/aqtinstall.log
+/CMakeUserPresets.json
+*.gb
+*.gbc
+*.sav
+*.s[0-9]
+*.s10
+*.cheats.txt
+*.cheats.json
+*.gbcart/
+menu-smoke-*/
+__pycache__/
 *.slo
 *.lo
 *.o
@@ -29,6 +42,8 @@ ui_*.h
 *.jsc
 Makefile*
 *build-*
+!build-macos-arm64.sh
+!build-windows-arm64.cmd
 build/
 *.qm
 *.prl

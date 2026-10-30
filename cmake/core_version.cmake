@@ -1,0 +1,12 @@
+# Export the actual submodule revision; the snapshot fallback also supports source archives without .git.
+file(READ "${PROJECT_SOURCE_DIR}/resources/sameboy-core-commit.txt" sameboy_core_commit)
+string(STRIP "${sameboy_core_commit}" sameboy_core_commit)
+find_package(Git QUIET)
+if(Git_FOUND)
+    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${PROJECT_SOURCE_DIR}/SameBoy" rev-parse HEAD RESULT_VARIABLE revision_result OUTPUT_VARIABLE revision OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    string(LENGTH "${revision}" revision_length)
+    if(revision_result EQUAL 0 AND revision MATCHES "^[0-9a-f]+$" AND revision_length EQUAL 40)
+        set(sameboy_core_commit "${revision}")
+    endif()
+endif()
+configure_file("${PROJECT_SOURCE_DIR}/resources/core_version.h.in" "${PROJECT_BINARY_DIR}/generated/core_version.h" @ONLY)

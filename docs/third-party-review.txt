@@ -1,0 +1,25 @@
+Third-party licensing review
+
+SameBoy core pinned at 19a7b14cfb10bb20b0f931b3d77359c11f866e17:
+https://github.com/LIJI32/SameBoy
+Core, Cocoa and shader sources are covered by the Expat terms in SameBoy/LICENSE.
+The Qt frontend does not incorporate upstream iOS or HexFiend components.
+The install rules preserve SameBoy-LICENSE. Modified frontend code is not an upstream endorsement.
+SDL is statically linked; its zlib license is included by the install rules.
+
+This is not a declaration that a release package is fully license-compliant.
+Before public redistribution, audit the exact deployed Qt modules/plugins, FFmpeg DLLs,
+compiler runtimes and other dependencies. Include their applicable copyright/license
+notices and fulfill their source availability/relinking requirements (or use an appropriate
+commercial license). Record the exact versions, build options and matching source locations.
+Dynamic linking alone does not discharge all LGPL obligations. No frontend license is
+selected by this review; repository authors must decide their own license.
+
+Upstream sources for the obligations:
+https://github.com/LIJI32/SameBoy/blob/master/LICENSE
+https://www.qt.io/development/open-source-lgpl-obligations
+https://www.qt.io/faq/qt-open-source-licensing
+
+Current verified scope: upstream core license preservation and SDL notice installation.
+Remaining release scope: complete dependency notices, corresponding-source provision,
+and final package redistribution review. Development packages are not advertised as audited releases.

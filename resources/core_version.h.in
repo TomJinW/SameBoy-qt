@@ -1,0 +1,2 @@
+#pragma once
+#define SAMEBOY_CORE_COMMIT "@sameboy_core_commit@"

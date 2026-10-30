@@ -1,0 +1,2 @@
+@echo off
+"@QT_HOST_PATH@/bin/qtpaths6.exe" -qtconf "@sameboy_target_qt_conf@" %*

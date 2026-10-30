@@ -1,0 +1,75 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-arm64",
+      "displayName": "Windows ARM64 (ClangCL + Qt 6)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-arm64",
+      "architecture": {
+        "value": "arm64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_C_COMPILER_TARGET": "aarch64-pc-windows-msvc",
+        "CMAKE_CXX_COMPILER_TARGET": "aarch64-pc-windows-msvc",
+        "CMAKE_PREFIX_PATH": "$env{QT_ARM64_ROOT}",
+        "QT_HOST_PATH": "$env{QT_HOST_ROOT}",
+        "SAMEBOY_REQUIRE_ARM64": "ON"
+      }
+    },
+    {
+      "name": "macos-arm64",
+      "displayName": "macOS Apple Silicon (Clang + Qt 6)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-macos-arm64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0",
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_ROOT}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-arm64",
+      "configurePreset": "windows-arm64",
+      "jobs": 8
+    },
+    {
+      "name": "macos-arm64",
+      "configurePreset": "macos-arm64",
+      "jobs": 8
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-arm64",
+      "configurePreset": "windows-arm64",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos-arm64",
+      "configurePreset": "macos-arm64",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

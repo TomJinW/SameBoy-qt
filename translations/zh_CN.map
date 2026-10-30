@@ -1,0 +1,550 @@
+ if old = %1|（原值为 %1 时）
+ — %1 disconnected| — %1 已断开
+%1 FPS|%1 FPS
+%1 fps|%1 FPS
+%1 objects intersect the screen|屏幕内有 %1 个精灵
+%1 results|%1 个结果
+%1 results (first %2 shown)|%1 个结果（显示前 %2 个）
+&Cheats|金手指(&C)
+&Connect|连接(&C)
+&Debug|调试(&D)
+&Emulation|模拟(&E)
+&File|文件(&F)
+&Help|帮助(&H)
+&Window|窗口(&W)
+1 minute|1 分钟
+10 minutes|10 分钟
+10 seconds|10 秒
+16-Bit|16 位
+16-Bit (Big Endian)|16 位（大端序）
+2 minutes|2 分钟
+30 seconds|30 秒
+5 minutes|5 分钟
+8-Bit|8 位
+About SameBoy Qt|关于 SameBoy Qt
+Accurate|精确
+Accurate (hardware)|精确（硬件）
+@Accurate blending follows|精确混帧模拟 LCD 帧与扫描线交替变化的规律。Super Game Boy 使用简单混帧。
+Accurate emulation|精确模拟
+Action|操作
+Add Cheat|添加金手指
+Add Cheat…|添加金手指…
+Address|地址
+Address is not backed by memory.|此地址没有对应的内存。
+Address is outside the selected bank.|地址超出所选银行的范围。
+Address is outside the selected space/bank.|地址超出所选空间或银行的范围。
+Allow mouse controls for motion games|允许使用鼠标控制体感游戏
+Alt is reserved for menus|Alt 已保留给菜单
+Always|始终
+Ambient light temperature:|环境光色温：
+Analog turbo and slow-motion controls (triggers)|使用模拟量控制加速和慢动作（扳机）
+Anti-aliased OmniScale Legacy|抗锯齿 OmniScale 旧版
+Anti-aliased Scale2x|抗锯齿 Scale2x
+Anti-aliased Scale4x|抗锯齿 Scale4x
+Any|任意
+Apply|应用
+Apply filters to screenshots|对截图应用滤镜
+Arrange Joy-Cons|配置 Joy-Con
+Arrange Joy-Cons…|配置 Joy-Con…
+Assign a different key to each action.|请为每项操作分配不同的按键。
+Audio|音频
+Audio Channels|音频声道
+Audio Recording|录音
+Audio and Performance|音频与性能
+Audio and Performance…|音频与性能…
+Audio recording stopped: file limit or write error.|录音已停止：达到文件大小上限或写入失败。
+Audio unavailable: no supported stereo PCM format. Running without audio.|没有受支持的立体声 PCM 格式，将静音运行。
+Auto refresh|自动刷新
+Automatic (GB / GBC)|自动（GB / GBC）
+Automatic (next available controller)|自动（下一个可用手柄）
+Automatic map|当前有效地图
+Automatic palette|当前有效调色板
+Automatic tileset|当前有效图块集
+Automatically combine available left and right Joy-Cons|自动合并可用的左右 Joy-Con
+Bank:|银行：
+Battery save|电池存档
+Bilinear (Blurry)|双线性（模糊）
+Boot ROM|启动 ROM
+Boot ROM folder|启动 ROM 文件夹
+Boot ROM must be between 256 and 2304 bytes.|启动 ROM 大小必须为 256 至 2304 字节。
+Boot ROMs location:|启动 ROM 位置：
+Brightness bias:|亮度偏移：
+Bring All to Front|将全部窗口置于前台
+Browse…|浏览…
+Built-in|内置
+CRT display|CRT 显示器
+Camera|相机
+Camera Settings…|相机设置…
+Camera disconnected. Select another device in Preferences → Camera.|相机已断开。请在“偏好设置 → 相机”中选择其他设备。
+Camera error: %1|相机错误：%1
+Camera image|相机图像
+Camera permission denied. Enable access in system settings, or choose an image source.|未获得相机权限。请在系统设置中允许访问，或选择图像文件作为来源。
+Cancel|取消
+Cannot create recording.|无法创建录音文件。
+Cannot export palette.|无法导出调色板。
+Cannot open state: %1|无法打开即时存档：%1
+Cannot read SameBoy cheat database.|无法读取 SameBoy 金手指文件。
+@Cannot read a valid Game Boy ROM or GBS file:|无法读取有效的 Game Boy ROM 或 GBS 文件：\n%1
+Cannot read a valid cartridge ROM.|无法读取有效的卡带 ROM。
+@Cannot read boot ROM:|无法读取启动 ROM：\n%1
+Cannot read camera image. Select an image in Preferences → Camera.|无法读取相机图像。请在“偏好设置 → 相机”中选择图像。
+Cannot read cartridge instance.|无法读取卡带实例。
+Cannot save cheats: %1|无法保存金手指：%1
+Cap turbo speed|限制加速速度
+Cartridge Instance|卡带实例
+Cartridge RAM|卡带 RAM
+Cartridge instance (*.gbcart)|卡带实例 (*.gbcart)
+Change byte at address:|修改此地址的字节：
+Channel 1 — Pulse 1|声道 1 — 方波 1
+Channel 2 — Pulse 2|声道 2 — 方波 2
+Channel 3 — Wave|声道 3 — 波形
+Channel 4 — Noise|声道 4 — 噪声
+Cheat Search|金手指搜索
+Cheat Search — %1|金手指搜索 — %1
+Cheats|金手指
+Cheats — %1|金手指 — %1
+Choose a new, unused cartridge instance path.|请选择一个尚未使用的新卡带实例路径。
+Choose image…|选择图像…
+Clear|清空
+Clear Menu|清空菜单
+Close|关闭
+Code|代码
+Color correction:|色彩校正：
+Color palette for monochrome models:|单色机型调色板：
+Combine|合并
+Combined|已合并
+@Combined Joy-Cons appear|合并后的 Joy-Con 在控制设置中显示为一个手柄。独立 Joy-Con 可分配给不同玩家。保存偏好设置后生效。
+Combined controller|合并手柄
+Configure a controller…|配置手柄…
+Configure controller|配置手柄
+Control settings for:|控制设置：
+Control, Alt and Meta are reserved for application shortcuts.|Control、Alt 和 Meta 已保留给应用快捷键。
+Controller|手柄
+Controller Hotkey %1 action:|手柄快捷键 %1 的操作：
+Controller button|手柄按键
+Controller initialization failed: %1|手柄初始化失败：%1
+Controller:|手柄：
+Controls|控制
+Copy Screenshot|复制截图
+Correct curves|校正曲线
+Could not finalize audio recording.|无法完成录音文件。
+Could not print the complete paper roll.|无法打印完整纸带。
+Could not save %1|无法保存 %1
+Could not save the printer image.|无法保存打印图像。
+Could not start audio output. Running without audio.|无法启动音频输出，将静音运行。
+Could not write %1: %2|无法写入 %1：%2
+Current Value|当前值
+Current hardware palettes|当前硬件调色板
+Custom Palettes|自定义调色板
+Custom…|自定义…
+Data Type:|数据类型：
+Debugger Help|调试器帮助
+Decrease Window Size|缩小窗口
+Default|默认
+Description|描述
+Description:|描述：
+Device:|设备：
+Did Change|已改变
+Did Decrease|已减小
+Did Increase|已增大
+Did Not Change|未改变
+Disabled|禁用
+Disabled (keep DC offset)|禁用（保留直流偏移）
+Disabled LCD color|LCD 关闭时的颜色
+Disconnected camera|已断开的相机
+Disconnected controller|已断开的手柄
+Display border:|显示边框：
+Distinct disabled LCD color|为关闭的 LCD 使用独立颜色
+Double-click a byte to edit · %1 bytes · Bank $%2|双击字节以编辑 · %1 字节 · 银行 $%2
+@Drop a Game Boy / Game Boy Color ROM here|将 Game Boy / Game Boy Color ROM 拖到此处\n或按 Ctrl+O 打开
+Duplicate binding|按键重复
+Edit Cheat|编辑金手指
+Emulated Model|模拟机型
+Emulation|模拟
+Enable Cheats|启用金手指
+Enable controllers while in background|在后台也启用手柄
+Enable rumble:|启用振动：
+Enabled|启用
+Enter Full Screen|进入全屏
+Entire Space|完整地址空间
+Exit|退出
+Exit Full Screen|退出全屏
+Export Palette|导出调色板
+Export Palette…|导出调色板…
+Expression:|表达式：
+Flat CRT display|平面 CRT 显示器
+Follow system|跟随系统
+For all games|所有游戏
+For rumble-enabled Game Paks|支持振动的卡带
+Force integer scale|强制整数倍缩放
+@Four independent players|Super Game Boy 游戏支持四名独立玩家。普通 GB/GBC 游戏使用玩家 1。点击按键进行映射；Delete 清除，Escape 取消。Ctrl+P 暂停。
+Frame blending:|混帧：
+Frames presented to the game view per second|每秒在游戏画面中呈现的帧数
+GBS Player|GBS 播放器
+GPU rendering is unavailable. Displaying an unfiltered image.|GPU 渲染不可用，正在显示未应用滤镜的画面。
+Game Boy Advance revision:|Game Boy Advance 硬件版本：
+Game Boy Color revision:|Game Boy Color 硬件版本：
+Game Boy Printer|Game Boy 打印机
+Game Boy ROM (*.gb *.gbc)|Game Boy ROM (*.gb *.gbc)
+Game Boy files (*.gb *.gbc *.gbs);;All files (*)|Game Boy 文件 (*.gb *.gbc *.gbs);;所有文件 (*)
+Game Boy revision:|Game Boy 硬件版本：
+Game Link Cable && Infrared|联机线 && 红外通信
+General|通用
+Go to hexadecimal address|跳转到十六进制地址
+Greyscale|灰度
+Grid|网格
+Grip|握持方式
+Hardware:|硬件机型：
+High-pass filter:|高通滤波器：
+Horizontal|横向
+Hot Swap|热插拔
+Hot Swap Cartridge|热插拔卡带
+Hot Swap Cartridge…|热插拔卡带…
+Hue bias strength:|色相偏移强度：
+Hue bias:|色相偏移：
+Image file|图像文件
+Image source:|图像来源：
+Image:|图像：
+Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;All files (*)|图像 (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;所有文件 (*)
+Import|导入
+Import GameShark or Game Genie cheat|导入 GameShark 或 Game Genie 金手指
+Import Palette|导入调色板
+Import Palette…|导入调色板…
+Incompatible or invalid save state.|即时存档无效或不兼容。
+Incompatible or truncated SameBoy cheat database.|SameBoy 金手指文件不兼容或不完整。
+Increase Window Size|放大窗口
+Interference volume:|干扰音量：
+Invalid GBS music file.|GBS 音乐文件无效。
+Invalid GBS track table.|GBS 音轨表无效。
+Invalid GameShark or Game Genie code.|GameShark 或 Game Genie 代码无效。
+Invalid ROM or GBS file.|ROM 或 GBS 文件无效。
+Invalid SameBoy cheat database.|SameBoy 金手指文件无效。
+Invalid SameBoy palette file.|SameBoy 调色板文件无效。
+Invalid address space.|地址空间无效。
+Invalid cheat flags.|金手指标志无效。
+Invalid memory address.|内存地址无效。
+Invalid search expression.|搜索表达式无效。
+Invalid value.|数值无效。
+Is Different From…|不等于…
+Is Equal To…|等于…
+Is Equal or Greater Than…|大于或等于…
+Is Equal or Less Than…|小于或等于…
+Is Greater Than…|大于…
+Is Less Than…|小于…
+Joy-Con (L + R)|Joy-Con（左 + 右）
+Joy-Con (L)|Joy-Con（左）
+Joy-Con (R)|Joy-Con（右）
+Keep aspect ratio|保持宽高比
+Keyboard|键盘
+LCD display|LCD 显示器
+Language changes take effect after restarting the application.|语言更改会在下次启动应用时生效。
+Language:|语言：
+Left trigger|左扳机
+Lime (Game Boy)|青柠绿（Game Boy）
+Link cable and infrared connected to %1|已通过联机线和红外连接至 %1
+Link disconnected|联机已断开
+Live camera|实时相机
+Load State|读取即时存档
+Low contrast|低对比度
+Manual mode|手动模式
+Map cell (%1, %2), offset $%3|地图格 (%1, %2)，偏移 $%3
+Memory|内存
+Memory — %1|内存 — %1
+Minimize|最小化
+Mirror horizontally|水平镜像
+Modern — Accurate|现代 — 精确
+Modern — Balanced|现代 — 均衡
+Modern — Boost contrast|现代 — 增强对比度
+Monochrome LCD display|单色 LCD 显示器
+Monospace font|等宽字体
+Monospace font:|等宽字体：
+More…|更多…
+@Motion cartridges use|体感卡带使用左摇杆，或手柄支持的加速度传感器。鼠标控制初始启用；按下手柄按键后切换到手柄，点击游戏画面可恢复鼠标控制。鼠标左键同时按下 A。振动需要兼容手柄。
+Motion sensitivity:|体感灵敏度：
+Mute Sound|静音
+Nearest neighbor|最近邻
+Never|从不
+New Cartridge Instance|新建卡带实例
+New Cartridge Instance…|新建卡带实例…
+New Cheat|新金手指
+New Window|新建窗口
+Next|下一曲
+No Joy-Cons connected. They will appear here after Bluetooth pairing.|没有连接 Joy-Con。完成蓝牙配对后会显示在此处。
+No camera is available. Select another camera or an image in Preferences → Camera.|没有可用相机。请在“偏好设置 → 相机”中选择其他相机或图像。
+No cartridge is running.|没有正在运行的卡带。
+No cartridge running|没有正在运行的卡带
+Noise (no camera)|噪声（不使用相机）
+None|无
+Not a SameBoy cheat database.|不是 SameBoy 金手指文件。
+Objects|精灵
+Olive (Pocket)|橄榄绿（Pocket）
+OmniScale (Any factor)|OmniScale（任意倍数）
+OmniScale Legacy|OmniScale 旧版
+On-screen display (frame rate)|屏幕叠加信息（帧率）
+Only for Super Game Boy|仅 Super Game Boy
+Only if old value was:|仅当原值为：
+Open|打开
+Open Cartridge|打开卡带
+Open ROM|打开 ROM
+Open Recent|最近打开
+Open another ROM in a New Window to connect|在新窗口中打开另一 ROM 即可连接
+Open…|打开…
+@Output: %1 Hz|输出：%1 Hz，16 位立体声\n模拟速度：%2×\n音频欠载：%3\n丢弃的立体声采样帧：%4\n\n较低的采样率与音频丢帧是不同问题。启动或暂停时出现欠载属正常现象；游戏中持续欠载可能与调度或 CPU 负载有关。
+P: priority · Y/X: flip · bank/palette · !: line limit exceeded|P：优先级 · Y/X：翻转 · 银行/调色板 · !：超出扫描线精灵上限
+PNG image (*.png)|PNG 图像 (*.png)
+PNG images (*.png)|PNG 图像 (*.png)
+@Pair each Joy-Con|请先在系统蓝牙设置中配对每只 Joy-Con。同时按住左侧 L 和右侧 R 可在此合并，也可使用“合并”按钮。单只 Joy-Con 支持横向或纵向握持。
+Palette|调色板
+Palette color|调色板颜色
+Palettes|调色板
+Partner|配对手柄
+Pause|暂停
+Pause / resume|暂停 / 继续
+@Pause: Ctrl+P|暂停：Ctrl+P\n偏好设置：Ctrl+,\n保存截图：Ctrl+S
+Pick Automatically|自动选择
+Pixelated|像素化
+Play|播放
+Player %1|玩家 %1
+Prefer joysticks over motion sensors|优先使用摇杆而非体感传感器
+Preferences|偏好设置
+Preferences…|偏好设置…
+Press a key…|请按下按键…
+Press controller button for %1 (%2/15)|请按下用于“%1”的手柄按键（%2/15）
+Press controller button for %1 (1/15)|请按下用于“%1”的手柄按键（1/15）
+Previous|上一曲
+Previous Value|先前值
+Print|打印
+Printed images will appear here.|打印图像将显示在此处。
+Printer|打印机
+Printer feed is full. Save and clear it before printing more.|打印纸带已满，请保存并清空后继续打印。
+Printing complete|打印完成
+Printing…|正在打印…
+Print…|打印…
+Quick Reset|快速重置
+Quick load (slot 1)|快速读档（位置 1）
+Quick save (slot 1)|快速存档（位置 1）
+Ready|就绪
+@Ready — arrows:|就绪 — 方向键：十字键 | X：A | Z：B | Enter：Start | Backspace：Select
+Real Time Clock:|实时时钟：
+Reduce contrast|降低对比度
+Refresh|刷新
+Reload ROM|重新载入 ROM
+Remove|移除
+Remove DC offset|移除直流偏移
+Replace the current palette library with the defaults?|将当前调色板库替换为默认调色板？
+Reserved key|保留按键
+Reset|重置
+Restart|重新开始
+Restore Default Palettes|恢复默认调色板
+Restore Palettes|恢复调色板
+Rewinding duration:|倒带时长：
+Right trigger|右扳机
+Rumble strength:|振动强度：
+@SameBoy Qt 0.1.0|SameBoy Qt 0.1.0\n基于 Qt Widgets 的 SameBoy 前端。\nSameBoy © 2015–2026 Lior Halphon（Expat 许可证）。
+SameBoy palette (*.sbp)|SameBoy 调色板 (*.sbp)
+Sample rate:|采样率：
+Save ROM Modifications|保存 ROM 修改
+Save ROM Modifications As|ROM 修改另存为
+Save ROM Modifications As…|ROM 修改另存为…
+Save Screenshot|保存截图
+Save Screenshot As…|截图另存为…
+Save State|保存即时存档
+Save printer feed|保存打印纸带
+Saved %1|已保存 %1
+Save…|保存…
+Scaling filter:|缩放滤镜：
+Screenshot|截图
+Scrolling|滚动范围
+Search|搜索
+Search Cheats|搜索金手指
+Search Condition:|搜索条件：
+Search result|搜索结果
+Search result (second byte)|搜索结果（第二字节）
+Separate Joy-Cons|分离 Joy-Con
+Shade %1|色阶 %1
+Show Background and Window|显示背景和窗口图层
+Show Cheats|显示金手指
+Show Memory|显示内存
+Show Menu Bar|显示菜单栏
+Show Objects|显示精灵
+Show Printer|显示打印机
+Show Status Bar|显示状态栏
+Show VRAM Viewer|显示 VRAM 查看器
+Simple|简单
+Skip / unassign|跳过 / 取消映射
+Slot %1|位置 %1
+Smooth bilinear (Less blurry)|平滑双线性（较清晰）
+Sponsor Original SameBoy|赞助原版 SameBoy
+Start Audio Recording|开始录音
+Start Audio Recording…|开始录音…
+Stick deadzone:|摇杆死区：
+Stop Audio Recording|停止录音
+Super Game Boy model:|Super Game Boy 机型：
+Sync to system clock|与系统时钟同步
+System default camera|系统默认相机
+Teal (Light)|青绿色（Light）
+The ROM could not be read completely.|未能完整读取 ROM。
+@The camera starts only|仅在 Game Boy Camera 游戏请求图像时启动相机；暂停或关闭游戏时停止采集。图像居中裁剪并转为灰度，曝光和抖动由模拟相机处理。访问失败时向游戏提供空白图像，避免一直等待。
+@The hardware high-pass|硬件高通滤波器会移除直流偏移并衰减低音。“移除直流偏移”则保留波形。
+This hardware revision is not implemented by the SameBoy core yet.|SameBoy 核心尚未实现此硬件版本。
+@This state is invalid|此即时存档无效，或使用不同的硬件版本。请先选择匹配机型再读取。
+Tile $%1 at %2:$%3|图块 $%1，地址 %2:$%3
+Tilemap|地图
+Tileset|图块集
+To value:|目标值：
+Track %1|音轨 %1
+Turbo speed:|加速速度：
+Unassigned|未分配
+Untitled Palette|未命名调色板
+Use built-in boot ROMs|使用内置启动 ROM
+Use hexadecimal addresses and byte values, for example $01:$C123 and $FF.|请使用十六进制地址与字节值，例如 $01:$C123 和 $FF。
+Use horizontal grip by default for single Joy-Cons|单只 Joy-Con 默认横向握持
+Use joysticks as faux analog controls|使用摇杆模拟模拟量输入
+VRAM Viewer|VRAM 查看器
+VRAM Viewer — %1|VRAM 查看器 — %1
+Vertical|纵向
+Video|视频
+Video RAM|显存
+Volume:|音量：
+WAV audio (*.wav)|WAV 音频 (*.wav)
+Waiting for printer data…|等待打印数据…
+Workboy|Workboy
+Workboy keyboard integration is not implemented yet.|尚未实现 Workboy 键盘支持。
+Wrote $%1 at $%2|已将 $%1 写入 $%2
+Zoom|缩放
+— FPS|— FPS
+The existing SameBoy Qt process is not responding.|已有的 SameBoy Qt 进程未响应。
+Could not start local IPC: %1|无法启动本地 IPC：%1
+Right|右
+Left|左
+Up|上
+Down|下
+A|A
+B|B
+Select|选择
+Start|开始
+Rapid A|连发 A
+Rapid B|连发 B
+Turbo|加速
+Rewind|倒带
+Slow motion|慢动作
+Hotkey 1|快捷键 1
+Hotkey 2|快捷键 2
+A / Cross (South)|A / ×（下）
+B / Circle (East)|B / ○（右）
+X / Square (West)|X / □（左）
+Y / Triangle (North)|Y / △（上）
+OK|确定
+&OK|确定(&O)
+&Cancel|取消(&C)
+Save|保存
+&Save|保存(&S)
+&Close|关闭(&C)
+Yes|是
+&Yes|是(&Y)
+No|否
+&No|否(&N)
+Reset All|全部重置
+Game Boy (15-bit)|Game Boy（15 位）
+RGB (hex)|RGB（十六进制）
+Raw Game Boy color: $%1 · RGB: %2|Game Boy 原始色值：$%1 · RGB：%2
+Monochrome shade %1 · RGB: %2|单色色阶 %1 · RGB：%2
+Back / Select|返回 / 选择
+Guide|主页
+Left stick click|左摇杆按下
+Right stick click|右摇杆按下
+Left shoulder|左肩键
+Right shoulder|右肩键
+D-pad Up|十字键上
+D-pad Down|十字键下
+D-pad Left|十字键左
+D-pad Right|十字键右
+Misc 1|其他 1
+Misc 2|其他 2
+Misc 3|其他 3
+Misc 4|其他 4
+Misc 5|其他 5
+Misc 6|其他 6
+Right paddle 1|右背键 1
+Left paddle 1|左背键 1
+Right paddle 2|右背键 2
+Left paddle 2|左背键 2
+Touchpad|触摸板
+SameBoy Qt|SameBoy Qt
+Restart Application|重启应用
+Restart saves settings and reopens the current ROM windows.|重启会保存设置，并重新打开当前的 ROM 窗口。
+Could not restart the application. Please launch it again manually.|无法重启应用，请手动重新启动。
+Control and Meta are reserved for application shortcuts.|Control 和 Meta 已保留给应用快捷键。
+Scaling Filter|缩放滤镜
+Colors|颜色
+Color Correction|色彩校正
+Monochrome Palette|单色机型调色板
+Frame Blending|混帧
+Display Border|显示边框
+Volume|音量
+Window|窗口
+Backstep|后退一步
+Break|中断
+Break Debugger|中断调试器
+Cannot read symbol file.|无法读取符号文件。
+Clear Console|清空控制台
+Continue|继续
+Copy AI Endpoint|复制 AI 接口地址
+Could not enable AI debugging: %1|无法启用 AI 调试：%1
+Debug Console|调试控制台
+Debug Console — %1|调试控制台 — %1
+Debugger command (help lists commands)|调试命令（输入 help 查看命令）
+Debugger command queue is full or emulation is stopping.|调试命令队列已满，或模拟器正在停止。
+Debugger stopped|调试器已暂停
+Developer Mode|开发者模式
+Emulated CPU usage|模拟 CPU 使用率
+Emulated CPU usage: %1%|模拟 CPU 使用率：%1%
+Enable AI Debugging|启用 AI 调试
+Enable Developer Mode and open a ROM to send commands.|启用开发者模式并打开 ROM 后即可发送命令。
+Help|帮助
+Load Symbols|载入符号
+Load Symbols…|载入符号…
+Registers and backtrace|寄存器与调用栈
+Running — Ctrl+C breaks execution|正在运行 — Ctrl+C 中断执行
+SameBoy core commit:|SameBoy 核心 commit：
+Show Console|显示控制台
+Step Into|单步进入
+Step Out|执行至返回
+Step Over|单步跳过
+Symbol files (*.sym);;All files (*)|符号文件 (*.sym);;所有文件 (*)
+Tile $%1 (%2:$%3) · Map $%4 · Attributes: %5|图块 $%1（%2:$%3）· 地图 $%4 · 属性：%5
+Upstream GitHub repository|上游 GitHub 仓库
+View core commit on GitHub|在 GitHub 查看此核心 commit
+
+Theme:|主题：
+Light|浅色
+Dark|深色
+CPU Load|CPU 负载
+Start Video Recording…|开始录屏…
+Start Video Recording|开始录屏
+Stop Video Recording|停止录屏
+Video Recording|录屏
+Output scale:|输出倍数：
+Keep current filters and frame blending|保留当前滤镜与帧混合
+H.264 video with game audio, at the original emulated frame rate.|以游戏原始帧率录制 H.264 视频及游戏声音。
+MP4 video (*.mp4)|MP4 视频 (*.mp4)
+Video recording stopped: %1|录屏已停止：%1
+1/8 speed|1/8 速度
+1/32 speed|1/32 速度
+Clear binding|清除绑定
+Paused|已暂停
+
+This cartridge's save files are already in use by this window.|此卡带的存档文件已由此窗口使用。
+
+The battery save failed. Retry, cancel to keep this cartridge open, or discard the unsaved progress.|电池存档保存失败。请选择重试、取消以保留当前卡带，或放弃未保存的进度。
+
+Hardware changes reset affected games. Boot ROM changes take effect when you reopen a ROM.|硬件设置变化会重置受影响的游戏。启动 ROM 的变化在重新打开 ROM 后生效。
+
+Could not restore all windows after a settings error. Reopen the affected ROMs.|设置出错后无法恢复所有窗口。请重新打开受影响的 ROM。
+
+Could not save preferences to %1.|无法将偏好设置保存到 %1。
+
+%1 (connection %2)|%1（连接 %2）
+Could not allocate a temporary emulator core.|无法分配临时模拟器核心。
+Could not allocate the emulator core.|无法分配模拟器核心。
+Emulator core initialization failed.|模拟器核心初始化失败。
