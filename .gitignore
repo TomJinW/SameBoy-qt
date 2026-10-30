@@ -44,6 +44,7 @@ Makefile*
 *build-*
 !build-macos-arm64.sh
 !build-windows-arm64.cmd
+!build-windows-x64.cmd
 build/
 *.qm
 *.prl

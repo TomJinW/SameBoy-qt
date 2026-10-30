@@ -59,6 +59,12 @@ Visual Studio environment, uses ClangCL, builds, runs tests and deploys Qt:
 .\build-windows-arm64.cmd
 ```
 
+For Windows x64, `build-windows-x64.cmd` uses Qt's MinGW x64 kit and MinGW GCC.
+Set `QT_X64_ROOT`, `QT_HOST_ROOT` (Qt host tools, including `qsb.exe`) and
+`MINGW_ROOT` to use installations outside `.tools`; the script builds and tests,
+then packages Qt and the MinGW runtime DLLs. Pass `build` to skip tests and
+packaging, or `package` to skip tests and create the deployment.
+
 By default the helper uses `.tools/Qt/6.10.0/msvc2022_arm64` for target libraries
 and `.tools/Qt/6.10.0/msvc2022_64` for Qt host tools. Set `QT_ARM64_ROOT` and
 `QT_HOST_ROOT` to use other installations. `CMakePresets.json` exposes the
