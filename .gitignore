@@ -2,6 +2,7 @@
 /.tools/
 /aqtinstall.log
 /CMakeUserPresets.json
+/dist/
 *.gb
 *.gbc
 *.sav

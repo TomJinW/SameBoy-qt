@@ -12,6 +12,7 @@ call :initialize_vs
 if not "%errorlevel%"=="0" exit /b 1
 if not defined QT_ARM64_ROOT set "QT_ARM64_ROOT=%CD%\.tools\Qt\6.10.0\msvc2022_arm64"
 if not defined QT_HOST_ROOT set "QT_HOST_ROOT=%CD%\.tools\Qt\6.10.0\msvc2022_64"
+set "DIST_DIR=%CD%\dist\windows-arm64"
 set "PATH=%VSINSTALLDIR%VC\Tools\Llvm\ARM64\bin;%VSINSTALLDIR%VC\Tools\Llvm\x64\bin;%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;%VSINSTALLDIR%Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;%PATH%"
 cmake --preset windows-arm64
 if not "%errorlevel%"=="0" exit /b 1
@@ -23,7 +24,12 @@ set "PATH=%QT_ARM64_ROOT%\bin;%PATH%"
 ctest --preset windows-arm64
 if not "%errorlevel%"=="0" exit /b 1
 :package
-cmake --install build-arm64 --prefix "%CD%\build-arm64\dist"
+if exist "%DIST_DIR%" rmdir /s /q "%DIST_DIR%"
+if exist "%DIST_DIR%" exit /b 1
+cmake --install build-arm64 --prefix "%DIST_DIR%"
+if not "%errorlevel%"=="0" exit /b 1
+if not exist "%DIST_DIR%\bin\sameboy-qt.exe" exit /b 1
+echo Built: %DIST_DIR%\bin\sameboy-qt.exe
 exit /b %errorlevel%
 
 :initialize_vs

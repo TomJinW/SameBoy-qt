@@ -18,8 +18,10 @@ export PATH="$QT_MACOS_ROOT/bin:$PATH"
 cmake --preset macos-arm64
 cmake --build --preset macos-arm64
 ctest --preset macos-arm64
-cmake --install build-macos-arm64 --prefix "$PWD/build-macos-arm64/dist"
+dist_dir="$PWD/dist/macos-arm64"
+rm -rf "$dist_dir"
+cmake --install build-macos-arm64 --prefix "$dist_dir"
 # Local ad-hoc signature after Qt framework/plugin deployment. Distribution signing is separate.
-/usr/bin/codesign --force --deep --sign - "$PWD/build-macos-arm64/dist/sameboy-qt.app"
-/usr/bin/lipo -verify_arch arm64 "$PWD/build-macos-arm64/dist/sameboy-qt.app/Contents/MacOS/sameboy-qt"
-echo "Built: $PWD/build-macos-arm64/dist/sameboy-qt.app"
+/usr/bin/codesign --force --deep --sign - "$dist_dir/sameboy-qt.app"
+/usr/bin/lipo -verify_arch arm64 "$dist_dir/sameboy-qt.app/Contents/MacOS/sameboy-qt"
+echo "Built: $dist_dir/sameboy-qt.app"

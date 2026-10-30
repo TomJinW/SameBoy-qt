@@ -13,6 +13,7 @@ if not "%errorlevel%"=="0" exit /b 1
 if not defined QT_X64_ROOT set "QT_X64_ROOT=%CD%\.tools\Qt\6.10.0\mingw_64"
 if not defined QT_HOST_ROOT set "QT_HOST_ROOT=%CD%\.tools\Qt\6.10.0\msvc2022_64"
 if not defined MINGW_ROOT set "MINGW_ROOT=%CD%\.tools\Qt\Tools\mingw1310_64"
+set "DIST_DIR=%CD%\dist\windows-x64"
 if not exist "%QT_X64_ROOT%\bin\qmake.exe" (
   echo Qt 6 MinGW x64 was not found: "%QT_X64_ROOT%"
   exit /b 1
@@ -35,9 +36,11 @@ if /i "%~1"=="package" goto package
 ctest --test-dir build-x64 --output-on-failure
 if not "%errorlevel%"=="0" exit /b 1
 :package
-cmake --install build-x64 --prefix "%CD%\build-x64\dist"
+if exist "%DIST_DIR%" rmdir /s /q "%DIST_DIR%"
+if exist "%DIST_DIR%" exit /b 1
+cmake --install build-x64 --prefix "%DIST_DIR%"
 if not "%errorlevel%"=="0" exit /b 1
-if not exist "%CD%\build-x64\dist\bin\sameboy-qt.exe" (
+if not exist "%DIST_DIR%\bin\sameboy-qt.exe" (
   echo The installed x64 executable was not found.
   exit /b 1
 )
@@ -46,9 +49,10 @@ for %%D in (libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll) do (
     echo Required MinGW runtime was not found: "%%D"
     exit /b 1
   )
-  copy /y "%MINGW_ROOT%\bin\%%D" "%CD%\build-x64\dist\bin\%%D" >nul
+  copy /y "%MINGW_ROOT%\bin\%%D" "%DIST_DIR%\bin\%%D" >nul
   if errorlevel 1 exit /b 1
 )
+echo Built: %DIST_DIR%\bin\sameboy-qt.exe
 exit /b 0
 
 :initialize_vs

@@ -64,12 +64,13 @@ Set `QT_X64_ROOT`, `QT_HOST_ROOT` (Qt host tools, including `qsb.exe`) and
 `MINGW_ROOT` to use installations outside `.tools`; the script builds and tests,
 then packages Qt and the MinGW runtime DLLs. Pass `build` to skip tests and
 packaging, or `package` to skip tests and create the deployment.
+The x64 package is written to `dist/windows-x64/bin/sameboy-qt.exe`.
 
 By default the helper uses `.tools/Qt/6.10.0/msvc2022_arm64` for target libraries
 and `.tools/Qt/6.10.0/msvc2022_64` for Qt host tools. Set `QT_ARM64_ROOT` and
 `QT_HOST_ROOT` to use other installations. `CMakePresets.json` exposes the
 `windows-arm64` configure/build/test presets for an already initialized developer shell.
-Start `build-arm64/dist/bin/sameboy-qt.exe` after deployment.
+The ARM64 package is written to `dist/windows-arm64/bin/sameboy-qt.exe`.
 Linux continues to use the generic GCC/Clang CMake commands above and system Qt libraries.
 
 ## Controls
@@ -236,7 +237,7 @@ sh build-macos-arm64.sh
 ```
 
 The preset targets arm64 and macOS 14+. The helper builds, tests, deploys matching Qt frameworks/plugins,
-ad-hoc signs, verifies the arm64 executable, and produces `build-macos-arm64/dist/sameboy-qt.app`.
+ad-hoc signs, verifies the arm64 executable, and produces `dist/macos-arm64/sameboy-qt.app`.
 Metal is used for both live filters and filtered screenshots, and all shader bundles include MSL.
 Finder file-open events and ROM/GBS/cartridge document types are registered; `.sav` is not registered.
 This is a local development package, not a notarized Developer ID distribution. macOS compilation, deployment,
