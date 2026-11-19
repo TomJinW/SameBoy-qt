@@ -8,7 +8,7 @@ IPC 传输：Windows 用命名管道，macOS 和 Linux 用 Unix 域套接字（�
 示例脚本 examples/sameboy.py、play_example.py 与平台无关，把对应路径传给它们即可。
 
 验证情况：macOS 上用本机构建的 app 跑通了 play_example.py 和 rpc.discover，自动化测试在 macOS 上通过；
-Linux 的自动化测试在 Xvfb 虚拟显示下通过（含跨进程 --rpc）；Windows x64 包由交叉编译产生，尚未在 Windows 上运行。真实 Linux 桌面和 AppImage 作为 --rpc 客户端没有单独验证。
+Linux 的自动化测试在 Xvfb 虚拟显示下通过（含跨进程 --rpc）；Windows x64 包由交叉编译产生，作者已在 Windows 上做过测试。真实 Linux 桌面和 AppImage 作为 --rpc 客户端没有单独验证。
 
 启用方式
 启动 sameboy-qt.exe --debug-server [ROM路径] 启用接口；已有进程运行时会通过 IPC 通知它启用。
