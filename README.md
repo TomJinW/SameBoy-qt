@@ -1,7 +1,34 @@
 # SameBoy Qt
 
-A Qt 6 Widgets frontend using the unmodified SameBoy core submodule.
-Release builds are macOS arm64 (native), Linux arm64/x64 (AppImage, built and tested in Apple Container) and Windows x64 (cross-compiled on a Mac with mingw-w64, not yet run on Windows). The Windows ARM64 helper is kept for development, but no Windows ARM64 release is made. Linux uses GCC/Clang and OpenGL.
+![SameBoy Qt](cover.png)
+
+A cross-platform Game Boy / Game Boy Color emulator: a Qt 6 frontend for the accurate
+[SameBoy](https://github.com/LIJI32/SameBoy) core, used unmodified as a submodule.
+
+## Download
+
+Get the latest build from the [Releases](https://github.com/TomJinW/SameBoy-qt/releases) page:
+
+- **Windows x64** — unpack the folder and run `bin/sameboy-qt.exe` (portable: settings are kept beside the program).
+- **macOS (Apple Silicon)** — `sameboy-qt.app`. It is not notarized, so on first launch use right-click → Open.
+- **Linux x64 / arm64** — an AppImage; make it executable (`chmod +x`) and run it.
+
+No game ROMs are included; open your own `.gb` / `.gbc` files. Open-source boot ROMs are built in, so no
+Nintendo firmware is needed.
+
+## Highlights
+
+- Accurate emulation of GB / GBC / SGB and more models, with keyboard, mouse, game controllers and Joy-Con (split or combined).
+- Cheats, save states, real-time rewind, and 16 display filters (LCD, CRT, Scale2x, HQ2x, OmniScale and more).
+- Link cable and infrared linking between two windows on the same computer.
+- Game Boy Printer (saves PNG/PDF), Game Boy Camera (uses your webcam), MBC7 tilt cartridges (mouse or Switch controller).
+- Screenshots, audio recording and H.264/MP4 video recording, with filters and integer scaling applied.
+- VRAM and memory viewers, a command-line debugger, audio channel switches, and a debug interface for AI tools (command line and Python).
+- A GBS music player; English and Simplified Chinese interface, light and dark themes.
+
+Release builds: macOS arm64 (native), Linux arm64/x64 (AppImage, built and tested in Apple Container) and
+Windows x64 (cross-compiled on a Mac with mingw-w64 and tested on Windows by the author). The Windows ARM64
+helper is kept for development, but no Windows ARM64 release is made. Linux uses GCC/Clang and OpenGL.
 
 ## Features
 
@@ -43,7 +70,8 @@ Release builds are macOS arm64 (native), Linux arm64/x64 (AppImage, built and te
 
 - CMake 3.25+, Ninja, Qt 6.8+ Widgets, Multimedia and PrintSupport, matching GuiPrivate development
   headers, and the Qt Shader Tools `qsb` and Linguist `lrelease` host executables.
-- Windows ARM64: **Qt MSVC ARM64 kit**, Visual Studio C++ ARM64 SDK/libraries,
+- Windows x64: **Qt 6.10 MinGW x64 kit** with its MinGW GCC (or cross-compile on a Mac, see below).
+- Windows ARM64 (development only): **Qt MSVC ARM64 kit**, Visual Studio C++ ARM64 SDK/libraries,
   and ClangCL. Plain MSVC `cl.exe` cannot compile the core's GNU C extensions.
 - Linux: GCC or Clang, Qt development packages, and a functioning Qt platform plugin
   for Wayland or X11. ARM64 should use a native ARM64 Qt/compiler toolchain.
@@ -57,15 +85,9 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
-Windows ARM64 is the default Windows preset; its helper is kept for development, and no release package is planned for it. The helper initializes the ARM64
-Visual Studio environment, uses ClangCL, builds and deploys Qt. Test programs are
-not compiled by default; pass `test` to build and run them before packaging:
+### Windows x64 (release platform)
 
-```powershell
-.\build-windows-arm64.cmd
-```
-
-For Windows x64, `build-windows-x64.cmd` uses Qt's MinGW x64 kit and MinGW GCC.
+`build-windows-x64.cmd` uses Qt's MinGW x64 kit and MinGW GCC.
 Set `QT_X64_ROOT`, `QT_HOST_ROOT` (Qt host tools, including `qsb.exe`) and
 `MINGW_ROOT` to use installations outside `.tools`; the script builds, then packages
 Qt and the MinGW runtime DLLs. Pass `test` to build and run the tests before packaging, or
@@ -84,11 +106,24 @@ into `.tools/Qt` with aqtinstall, compiles with `cmake/toolchains/mingw-w64-x86_
 `dist/windows-x64/bin/sameboy-qt.exe`, with the same contents as the native MinGW package except Windows SDK's
 `dxcompiler.dll`/`dxil.dll`. The tests cannot run on macOS, so the cross build only compiles and packages. On Linux, run `./build-windows-x64-mingw.sh` directly.
 
+### Windows ARM64 (development only)
+
+The Windows ARM64 helper is kept for development; no release package is planned for it. It is the only Windows
+preset in `CMakePresets.json` (`windows-arm64`, for an already initialized developer shell). The helper initializes the
+ARM64 Visual Studio environment, uses ClangCL, builds and deploys Qt. Test programs are
+not compiled by default; pass `test` to build and run them before packaging:
+
+```powershell
+.\build-windows-arm64.cmd
+```
+
 By default the helper uses `.tools/Qt/6.10.0/msvc2022_arm64` for target libraries
 and `.tools/Qt/6.10.0/msvc2022_64` for Qt host tools. Set `QT_ARM64_ROOT` and
-`QT_HOST_ROOT` to use other installations. `CMakePresets.json` exposes the
-`windows-arm64` configure/build/test presets for an already initialized developer shell.
+`QT_HOST_ROOT` to use other installations.
 The ARM64 package is written to `dist/windows-arm64/bin/sameboy-qt.exe`.
+
+### Windows packages
+
 Windows builds are portable by default: settings are saved to `bin/config/SameBoyQt/SameBoyQt.ini` beside the
 executable. On the first launch an existing `%APPDATA%\SameBoyQt\SameBoyQt.ini` is copied there. If the folder is not
 writable (for example under Program Files) the app falls back to `%APPDATA%`. Configure with `-DSAMEBOY_PORTABLE=OFF`
@@ -165,7 +200,7 @@ hardware validation. ARM64 and x64 builds run sequentially when using `all`.
 JOBS=4 CONTAINER_MEMORY=8G ./build-linux-apple-container.sh all -DCMAKE_BUILD_TYPE=Debug
 ```
 
-Windows helpers use `build-windows-arm64` and `build-windows-x64` as their respective
+Windows helpers use `build-windows-x64` and `build-windows-arm64` as their respective
 build directories. Older `build-arm64`/`build-x64` caches are not reused; generate a
 fresh build in the new directories rather than moving an existing CMake cache.
 
@@ -262,13 +297,13 @@ debugger execution remains disabled. GPU shaders are compiled by `qsb` from the
 unmodified upstream GLSL filter bodies. QRhi currently uses GuiPrivate headers, so
 build and deploy against the same Qt version; the Windows package bundles matching libraries.
 Windows, macOS and Linux validation results are recorded separately: macOS and Linux are built and tested
-(Linux in Apple Container); Windows x64 is cross-compiled and untested; real devices are unvalidated everywhere.
+(Linux in Apple Container); Windows x64 is cross-compiled and was tested on Windows by the author; real devices are unvalidated everywhere.
 
 The SameBoy Qt frontend is released under the MIT License (`LICENSE`). The upstream core and boot ROM license is in `SameBoy/LICENSE`; Qt, FFmpeg and SDL keep their own licenses (`resources/licenses/THIRD-PARTY-NOTICES.txt`).
 
 ## Validation
 
-The Windows ARM64 toolchain uses Qt 6.10.0, native ClangCL 22 and the MSVC ABI.
+The Windows x64 toolchain uses Qt 6.10.0's MinGW kit (MinGW GCC 13); the Windows ARM64 development toolchain uses Qt 6.10.0, native ClangCL 22 and the MSVC ABI.
 The previous x64 build used MinGW 13.1. Core smoke tests boot
 original synthetic cartridges across all selectable model families, verify cartridge
 code execution, audio callbacks, rewind and battery serialization/restoration. Worker tests exercise
@@ -421,8 +456,6 @@ About shows the pinned full core commit and GitHub links. VRAM tilemap hover inf
 includes tile number, bank/VRAM address, map address and attributes; palette text contrast
 matches Cocoa, and tileset grid boundaries distinguish banks and 128-tile sections.
 
-[Reusable Cocoa parity review Goal prompt](docs/mac-parity-review-prompt.txt)
-
 [Third-party licensing review and remaining release requirements](docs/third-party-review.txt)
 
 Slow motion follows Cocoa by underclocking the core while retaining full-duration PCM output; it no longer drops audio. Debug → Audio Channels reuses the global Mute Sound action, including the game context menu. Printer controls and the preview viewport follow dialog palette changes without recoloring the printed feed.
@@ -509,3 +542,17 @@ detaches the core's shared buffer, then stops the old sink on its audio thread,
 and finally attaches the new stream. Recording is finalized before a stream
 format/device change. Stale callbacks from old streams are ignored. Physical
 hot-plug behavior still needs validation with the intended audio hardware.
+
+## Application icon
+
+The icon is original artwork drawn by `tools/make-icon.py` (needs Pillow; run it again to regenerate every size).
+It writes `resources/icons/sameboy-qt.png` (embedded as the window icon on Windows and Linux),
+`sameboy-qt.ico` (compiled into `sameboy-qt.exe`), `sameboy-qt.icns` (the macOS bundle icon, made with `iconutil`)
+and `resources/icons/linux/<size>.png` (installed into the hicolor theme and used by the AppImage).
+
+## License
+
+The SameBoy Qt frontend is released under the [MIT License](LICENSE). The SameBoy core (the `SameBoy/` submodule)
+and the boot ROMs are under SameBoy's own Expat license (`SameBoy/LICENSE`). Qt, FFmpeg and SDL keep their own
+licenses; see `resources/licenses/THIRD-PARTY-NOTICES.txt` (installed with every package) and
+[docs/third-party-review.txt](docs/third-party-review.txt).
