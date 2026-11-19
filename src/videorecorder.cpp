@@ -1,5 +1,9 @@
 #include "videorecorder.h"
 #include "filterrenderer.h"
+#include <QDir>
+#include <QPluginLoader>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <QMediaRecorder>
 #include <QMediaCaptureSession>
 #include <QMediaFormat>
@@ -59,7 +63,21 @@ struct VideoRecorder::Impl{
 };
 VideoRecorder::VideoRecorder(QObject*parent):QObject(parent),impl_(std::make_unique<Impl>(this)){}
 VideoRecorder::~VideoRecorder(){if(impl_->running)finish();}
+QString VideoRecorder::availabilityError(){
+ // Codec support alone is insufficient: custom frame/buffer inputs require FFmpeg.
+ const auto backend=qgetenv("QT_MEDIA_BACKEND");
+ if(!backend.isEmpty()&&backend!="ffmpeg")return QStringLiteral("Video recording requires the Qt FFmpeg multimedia backend. Set QT_MEDIA_BACKEND=ffmpeg before launching.");
+ for(const auto&path:QCoreApplication::libraryPaths()){
+  const QDir plugins(path+QStringLiteral("/multimedia"));
+  for(const auto&file:plugins.entryList(QDir::Files)){
+   const auto keys=QPluginLoader(plugins.filePath(file)).metaData().value("MetaData").toObject().value("Keys").toArray();
+   for(const auto&key:keys)if(key.toString()==QStringLiteral("ffmpeg"))return {};
+  }
+ }
+ return QStringLiteral("Video recording requires a Qt installation with the FFmpeg multimedia plugin; the native multimedia backend cannot record custom frames.");
+}
 QString VideoRecorder::start(const QString&path,QSize size,double fps,unsigned rate,int scale,bool filters){
+ const auto unavailable=availabilityError();if(!unavailable.isEmpty())return unavailable;
  auto&i=*impl_;if(i.running)return QStringLiteral("A video is already being recorded.");if(!QVector<int>{1,2,4,6,8}.contains(scale)||size.isEmpty()||fps<=0||rate==0)return QStringLiteral("Invalid recording format.");
  QMediaFormat format(QMediaFormat::MPEG4);format.setVideoCodec(QMediaFormat::VideoCodec::H264);format.setAudioCodec(QMediaFormat::AudioCodec::AAC);if(!format.isSupported(QMediaFormat::Encode))return QStringLiteral("H.264/AAC MP4 recording is unavailable in this multimedia backend.");
  i.error.clear();i.finishing=i.started=i.stopped=i.videoEnd=i.audioEnd=false;i.frameCount=i.audioFrames=0;i.incoming.clear();i.videos.clear();i.audios.clear();

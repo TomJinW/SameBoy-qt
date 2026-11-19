@@ -1,0 +1,44 @@
+SameBoy Qt - third-party notices
+
+This package contains, or loads at run time, the components below. Each keeps its own license.
+This file lists what is bundled and where the corresponding source is; the full license texts
+are in this folder (LGPL-2.1.txt, LGPL-3.0.txt, SameBoyQt-LICENSE, SameBoy-LICENSE, SDL-LICENSE.txt).
+
+FFmpeg libraries (libavcodec, libavformat, libavutil, libswresample, libswscale)
+  License: GNU LGPL version 2.1 or later (LGPL-2.1.txt). No GPL or nonfree component is enabled.
+  Linking: shared libraries, loaded by Qt's FFmpeg multimedia plugin. They can be replaced by a
+  compatible build of the same major versions (libavcodec 61 on Linux, 63 on macOS).
+  Source: https://ffmpeg.org/releases/ (tarball and SHA-256 below); the project's build recipes are
+  setup-macos-ffmpeg.sh and cmake/containers/linux.Containerfile in this program's source tree.
+  macOS:   FFmpeg 9.0.2, sha256 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
+           configure: --enable-shared --disable-static --enable-pic --disable-gpl --disable-version3
+           --disable-nonfree --disable-autodetect --disable-programs --disable-doc --disable-debug
+           --enable-videotoolbox --enable-audiotoolbox --enable-zlib
+  Linux:   FFmpeg 7.1.5, sha256 de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f
+           configure: --enable-shared --disable-static --enable-pic --disable-gpl --disable-version3
+           --disable-nonfree --disable-autodetect --disable-programs --disable-doc --enable-zlib
+           --enable-vaapi --enable-libopenh264 --enable-libvpx --enable-libopus
+  Windows: the FFmpeg DLLs shipped with the Qt binary distribution used to build the package
+           (see the Qt notes below); their source is available from Qt's source offer.
+
+Qt (Widgets, Gui, Multimedia, Network, PrintSupport and plugins)
+  License: GNU LGPL version 3 (LGPL-3.0.txt) with the Qt modules' GPL/commercial alternatives.
+  Linking: shared libraries/frameworks, replaceable by the user.
+  Source: https://download.qt.io/official_releases/qt/ (macOS: Qt 6.12.0; the locally built
+  Qt Multimedia 6.12.0 source has sha256 3143f53b64257ba2a0685c940f5dce476c75871ff86b516de45cfd54ea93a62d;
+  Windows: Qt 6.10.0; Linux AppImage: Debian 13 Qt packages, source at https://sources.debian.org/).
+  See https://www.qt.io/development/open-source-lgpl-obligations
+
+Linux AppImage only - libraries used by the bundled FFmpeg
+  OpenH264 (BSD-2-Clause), libvpx (BSD-3-Clause), libopus (BSD-3-Clause), libva (MIT), zlib (zlib).
+  Their notices are those of the Debian 13 packages (source: https://sources.debian.org/).
+
+SameBoy Qt frontend (MIT)        SameBoyQt-LICENSE
+SameBoy core (MIT/Expat)         SameBoy-LICENSE
+SDL3 (zlib)                      SDL-LICENSE.txt
+
+Corresponding source: the source code of this program, including the build recipes for the FFmpeg
+libraries named above, is at https://github.com/tomjinw/sameboy-qt (the tag or commit matching this
+package's version). The unmodified FFmpeg and Qt sources are at the upstream locations listed above.
+On request through that repository's issue tracker, the distributor will provide the corresponding
+source of the LGPL components in this package for at least three years from the date of distribution.

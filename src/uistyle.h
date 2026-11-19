@@ -1,24 +1,90 @@
 #pragma once
 #include <QString>
-inline QString compactMenuStyle()
-{
-    return QStringLiteral("QMenu { padding: 2px 0px; }"
-                          "QMenu::item { padding: 2px 20px 2px 18px; }"
-                          "QMenu::item:selected:enabled { background-color: palette(highlight); color: palette(highlighted-text); }"
-                          "QMenuBar::item:selected { background-color: palette(highlight); color: palette(highlighted-text); }"
-                          "QMenuBar::item:pressed { background-color: palette(highlight); color: palette(highlighted-text); }"
-                          "QMenu::separator { height: 1px; margin: 3px 8px; }"
-                          "QMenuBar::item { padding: 3px 8px; }");
-}
-
 #include <QApplication>
 #include <QStyleHints>
 #include <QStyle>
+#include <QStyleFactory>
+#include <QOperatingSystemVersion>
 #include <QEvent>
 #include <QTimer>
+
+inline bool isWindows10Platform()
+{
+#ifdef Q_OS_WIN
+    const auto version = QOperatingSystemVersion::current();
+    // Windows 11 reports 10.0 with build numbers starting at 22000.
+    return version.majorVersion() == 10 && version.minorVersion() == 0 && version.microVersion() < 22000;
+#else
+    return false;
+#endif
+}
+
+inline int effectiveInterfaceTheme(int theme)
+{
+    return isWindows10Platform() ? 1 : theme;
+}
+
+inline QString compactMenuStyle()
+{
+    QString style = QStringLiteral("QMenuBar { background-color: palette(window); color: palette(window-text); }"
+                                   "QMenuBar::item { padding: 3px 8px; background-color: transparent; color: palette(window-text); }"
+                                   "QMenu { padding: 2px 0px; }"
+                                   "QMenu::item { padding: 2px 20px 2px 18px; }"
+                                   "QMenu::item:selected:enabled { background-color: palette(highlight); color: palette(highlighted-text); }"
+                                   "QMenuBar::item:selected { background-color: palette(highlight); color: palette(highlighted-text); }"
+                                   "QMenuBar::item:pressed { background-color: palette(highlight); color: palette(highlighted-text); }"
+                                   "QMenu::separator { height: 1px; margin: 3px 8px; }");
+#ifdef Q_OS_WIN
+    if (qApp && qApp->property("interfaceTheme").toInt() == 2 && !isWindows10Platform()) {
+        // Windows 10 dark mode is currently unavailable; on supported systems,
+        // explicitly bind common widgets to the active palette.
+        style += QStringLiteral(
+            "QCheckBox, QRadioButton, QGroupBox { color: palette(window-text); }"
+            "QLineEdit, QComboBox, QAbstractSpinBox, QTextEdit, QPlainTextEdit, QAbstractItemView {"
+            " color: palette(text); background-color: palette(base); selection-background-color: palette(highlight);"
+            " selection-color: palette(highlighted-text); }"
+            "QPushButton, QToolButton { color: palette(button-text); background-color: palette(button); }"
+            "QTabWidget::pane { background-color: palette(window); color: palette(window-text); }"
+            "QTabBar::tab { color: palette(button-text); background-color: palette(button); }"
+            "QComboBox:disabled, QLineEdit:disabled, QAbstractSpinBox:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {"
+            " color: palette(placeholder-text); background-color: palette(alternate-base); }"
+            "QPushButton:disabled, QToolButton:disabled, QCheckBox:disabled, QRadioButton:disabled, QTabBar::tab:disabled {"
+            " color: palette(placeholder-text); }");
+    }
+#endif
+    return style;
+}
+
+inline void applyInterfaceStyle(int theme)
+{
+#ifdef Q_OS_WIN
+    // The Windows native style paints several controls with Win32 theme data and
+    // does not consistently honor an application QPalette. Use Fusion for an
+    // explicitly selected scheme, and restore the original platform style when
+    // following Windows' own appearance.
+    if (!qApp->property("interfaceOriginalStyleCaptured").toBool()) {
+        qApp->setProperty("interfaceOriginalStyleCaptured", true);
+        qApp->setProperty("interfaceOriginalStyle", qApp->style()->objectName());
+        qApp->setProperty("interfaceAppliedStyle", qApp->style()->objectName());
+    }
+    const QString original = qApp->property("interfaceOriginalStyle").toString();
+    const bool explicitTheme = !isWindows10Platform() && (theme == 1 || theme == 2);
+    const QString desired = explicitTheme ? QStringLiteral("Fusion") : original;
+    if (!desired.isEmpty() && qApp->property("interfaceAppliedStyle").toString().compare(desired, Qt::CaseInsensitive) != 0) {
+        if (auto *style = QStyleFactory::create(desired)) {
+            qApp->setStyle(style);
+            qApp->setProperty("interfaceAppliedStyle", desired);
+        }
+    }
+#else
+    Q_UNUSED(theme);
+#endif
+}
+
 inline void refreshInterfacePalette(){
     if(qApp->property("refreshingInterfacePalette").toBool())return;
     qApp->setProperty("refreshingInterfacePalette",true);
+    applyInterfaceStyle(qApp->property("interfaceTheme").toInt());
     const int theme=qApp->property("interfaceTheme").toInt();
     const bool dark=theme==2||(theme==0&&QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Dark);
     // Unpolish first: otherwise the stylesheet proxy can restore old widget palettes.
@@ -63,7 +129,7 @@ inline void refreshInterfacePalette(){
     set(QPalette::Disabled,QPalette::ToolTipBase,alternate);set(QPalette::Disabled,QPalette::ToolTipText,disabledText);
     set(QPalette::Disabled,QPalette::PlaceholderText,disabledText);set(QPalette::Disabled,QPalette::Accent,disabledText);
     QApplication::setPalette(palette);
-    if(!stylesheet.isEmpty())qApp->setStyleSheet(stylesheet);
+    if(!stylesheet.isEmpty())qApp->setStyleSheet(compactMenuStyle());
     qApp->setProperty("refreshingInterfacePalette",false);
 }
 // Native theme notifications may update the application palette after colorSchemeChanged.
@@ -85,6 +151,7 @@ private:
     bool pending_=false;
 };
 inline void applyInterfaceTheme(int theme){
+    theme = effectiveInterfaceTheme(theme);
     qApp->setProperty("interfaceTheme",theme);
     if(!qApp->property("interfacePaletteConnected").toBool()){
         qApp->setProperty("interfacePaletteConnected",true);

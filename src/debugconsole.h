@@ -6,6 +6,7 @@ class QPlainTextEdit;class QLineEdit;class QLabel;class CpuLoadGraph;class QPush
 class DebugConsole final:public QDialog{
 public:
  DebugConsole(const QFont&,std::function<void(QString)>send,std::function<void()>clear,std::function<void()>loadSymbols,QWidget*parent=nullptr);
+ void setFrequency(double hz);
  void append(const QVector<DebugLog>&);
  void clearOutput();
  void resetCpuLoad();

@@ -1,6 +1,14 @@
+#ifdef __MINGW32__
+/* MinGW-w64 provides everything else in windows_compat.h natively, but not getline. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#else
 #include "windows_compat.h"
 #include <stdlib.h>
+#endif
 
+#ifndef __MINGW32__
 int vasprintf(char **out, const char *format, va_list args)
 {
     va_list copy;
@@ -11,6 +19,8 @@ int vasprintf(char **out, const char *format, va_list args)
     if (!*out) return -1;
     return vsnprintf(*out, (size_t)size + 1, format, args);
 }
+
+#endif
 
 ssize_t getline(char **line, size_t *capacity, FILE *file)
 {

@@ -23,7 +23,7 @@ bool LocalLink::runFrame(int side){
             continue;
         }
         auto&p=ports_[next];if(!p.core||*p.ready)break;
-        const auto cycles=sameboy_debug_run(p.core);if(!cycles&&GB_debugger_is_stopped(p.core)){if(p.debugStopped)*p.debugStopped=true;return false;}if(p.debugStopped&&p.debugStopped->load())*p.debugStopped=GB_debugger_is_stopped(p.core);*p.cycles+=cycles;
+        const auto cycles=sameboy_debug_run(p.core,p.cpuFrequency);if(!cycles&&GB_debugger_is_stopped(p.core)){if(p.debugStopped)*p.debugStopped=true;return false;}if(p.debugStopped&&p.debugStopped->load())*p.debugStopped=GB_debugger_is_stopped(p.core);*p.cycles+=cycles;
         offset_+=next==0?int64_t(cycles)*frequency1:-int64_t(cycles)*frequency0;
     }
     return *mine.ready;

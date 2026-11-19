@@ -17,6 +17,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QScopedValueRollback>
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QTableWidget>
@@ -28,6 +29,14 @@ QString hex(unsigned value, int digits) { return "$" + QString::number(value,16)
 bool parseHex(QString text, unsigned max, unsigned &result) {
     text = text.trimmed(); text.remove('$'); if (text.startsWith("0x",Qt::CaseInsensitive)) text.remove(0,2);
     bool ok; result = text.toUInt(&ok,16); return ok && result <= max;
+}
+// Values follow Cocoa (GBCheatWindowController updateCheat, debugger literals): '$' or 0x marks hex,
+// a plain number is decimal. Addresses stay hexadecimal, as Cocoa requires their '$'.
+bool parseValue(QString text, unsigned max, unsigned &result) {
+    text = text.trimmed(); int base = 10;
+    if (text.startsWith('$')) { text.remove(0,1); base = 16; }
+    else if (text.startsWith("0x",Qt::CaseInsensitive)) { text.remove(0,2); base = 16; }
+    bool ok; result = text.toUInt(&ok,base); return ok && result <= max;
 }
 QByteArray cheatDescription(const QString&text){
     auto bytes=text.toUtf8();bytes.truncate(127);
@@ -156,9 +165,9 @@ void CheatsDialog::commit(const QVector<CheatEntry> &entries){const auto error=p
     warn(this,execute_([entries](GB_gameboy_t *gb){setEntries(gb,entries);return QString();}));reload();}
 void CheatsDialog::applyEditor(){const int row=table_->currentRow();if(row<0)return;auto entries=entries_;auto &e=entries[row];
     auto parts=address_->text().split(':');unsigned address,bank=GB_CHEAT_ANY_BANK,value,old=0;
-    bool valid=parts.size()<=2&&parseHex(parts.last(),65535,address)&&parseHex(value_->text(),255,value);
+    bool valid=parts.size()<=2&&parseHex(parts.last(),65535,address)&&parseValue(value_->text(),255,value);
     if(parts.size()==2&&parts.first().trimmed()!="*")valid=valid&&parseHex(parts.first(),65535,bank);
-    if(conditional_->isChecked())valid=valid&&parseHex(old_->text(),255,old);
+    if(conditional_->isChecked())valid=valid&&parseValue(old_->text(),255,old);
     if(!valid){warn(this,tr("Use hexadecimal addresses and byte values, for example $01:$C123 and $FF."));return;}
     e.description=description_->text();e.address=address;e.bank=bank;e.value=value;e.oldValue=old;e.conditional=conditional_->isChecked();commit(entries);
 }
@@ -168,7 +177,7 @@ CheatSearchDialog::CheatSearchDialog(CoreExecutor execute,QString base,std::func
 {
     setWindowTitle(tr("Cheat Search"));resize(780,560);setAttribute(Qt::WA_DeleteOnClose);
     auto *layout=new QVBoxLayout(this);table_=new QTableWidget(0,3);table_->setHorizontalHeaderLabels({tr("Address"),tr("Previous Value"),tr("Current Value")});
-    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);table_->setSelectionBehavior(QAbstractItemView::SelectRows);table_->setSelectionMode(QAbstractItemView::SingleSelection);table_->setEditTriggers(QAbstractItemView::NoEditTriggers);table_->setAlternatingRowColors(true);table_->verticalHeader()->hide();layout->addWidget(table_,1);
+    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);table_->setSelectionBehavior(QAbstractItemView::SelectRows);table_->setSelectionMode(QAbstractItemView::SingleSelection);table_->setEditTriggers(QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed);table_->setAlternatingRowColors(true);table_->verticalHeader()->hide();layout->addWidget(table_,1);
     auto *form=new QFormLayout;type_=new QComboBox;type_->addItem(tr("8-Bit"),0);type_->addItem(tr("16-Bit"),1);type_->addItem(tr("16-Bit (Big Endian)"),3);
     condition_=new QComboBox;condition_->addItems({tr("Any"),tr("Is Equal To…"),tr("Is Different From…"),tr("Is Greater Than…"),tr("Is Equal or Greater Than…"),tr("Is Less Than…"),tr("Is Equal or Less Than…"),tr("Did Change"),tr("Did Not Change"),tr("Did Increase"),tr("Did Decrease"),tr("Custom…")});condition_->setCurrentIndex(1);
     operand_=new QLineEdit("$0");operand_->setObjectName("searchOperand");expression_=new QLineEdit;expression_->setObjectName("searchExpression");auto *row=new QHBoxLayout;row->addWidget(condition_,1);row->addWidget(operand_);
@@ -178,6 +187,8 @@ CheatSearchDialog::CheatSearchDialog(CoreExecutor execute,QString base,std::func
     connect(condition_,&QComboBox::currentIndexChanged,this,&CheatSearchDialog::updateExpression);connect(operand_,&QLineEdit::textChanged,this,&CheatSearchDialog::updateExpression);
     connect(resetButton,&QPushButton::clicked,this,&CheatSearchDialog::reset);connect(searchButton,&QPushButton::clicked,this,&CheatSearchDialog::search);connect(add_,&QPushButton::clicked,this,&CheatSearchDialog::addCheat);
     connect(table_,&QTableWidget::itemSelectionChanged,this,[this]{add_->setEnabled(table_->currentRow()>=0);});
+    // Cocoa GBCheatSearchController lets the current value be edited in place, evaluated like a debugger expression.
+    connect(table_,&QTableWidget::itemChanged,this,[this](QTableWidgetItem*item){if(!refreshing_&&item->column()==2)writeValue(item->row(),item->text());});
     connect(table_->verticalScrollBar(),&QScrollBar::valueChanged,this,[this]{refreshValues();});
     auto *timer=new QTimer(this);connect(timer,&QTimer::timeout,this,&CheatSearchDialog::refreshValues);timer->start(250);updateExpression();reset();
 }
@@ -194,7 +205,10 @@ void CheatSearchDialog::search(){QVector<GB_cheat_search_result_t> results;
         results.resize(GB_cheat_search_result_count(gb));if(!results.isEmpty())GB_cheat_search_get_results(gb,results.data());return QString();});
     if(!error.isEmpty()){warn(this,error);return;}results_=std::move(results);type_->setEnabled(results_.isEmpty());
     const int shown=qMin<qsizetype>(results_.size(),10000);table_->setRowCount(shown);const int digits=type_->currentData().toInt()&1?4:2;
-    for(int row=0;row<shown;++row){const auto &r=results_[row];table_->setItem(row,0,new QTableWidgetItem(hex(r.bank,2)+":"+hex(r.addr,4)));table_->setItem(row,1,new QTableWidgetItem(hex(r.value,digits)));table_->setItem(row,2,new QTableWidgetItem);}
+    {QScopedValueRollback<bool> quiet(refreshing_,true);
+    for(int row=0;row<shown;++row){const auto &r=results_[row];auto*address=new QTableWidgetItem(hex(r.bank,2)+":"+hex(r.addr,4)),*previous=new QTableWidgetItem(hex(r.value,digits));
+        address->setFlags(address->flags()&~Qt::ItemIsEditable);previous->setFlags(previous->flags()&~Qt::ItemIsEditable);
+        table_->setItem(row,0,address);table_->setItem(row,1,previous);table_->setItem(row,2,new QTableWidgetItem);}}
     count_->setText(results_.size()>shown?tr("%1 results (first %2 shown)").arg(results_.size()).arg(shown):tr("%1 results").arg(results_.size()));refreshValues();
 }
 void CheatSearchDialog::refreshValues(){if(results_.isEmpty()||!isVisible()||isMinimized())return;
@@ -207,10 +221,22 @@ void CheatSearchDialog::refreshValues(){if(results_.isEmpty()||!isVisible()||isM
     const auto error=execute_([&](GB_gameboy_t *gb){for(int row:rows){if(row>=selected.size())return QString();const auto &r=selected[row];size_t size;const auto kind=r.addr<0xC000?GB_DIRECT_ACCESS_CART_RAM:r.addr<0xE000?GB_DIRECT_ACCESS_RAM:GB_DIRECT_ACCESS_HRAM;
         const auto *data=static_cast<const uint8_t *>(GB_get_direct_access(gb,kind,&size,nullptr));size_t offset=r.addr<0xC000?(r.addr&0x1fff)+r.bank*0x2000:r.addr<0xE000?(r.addr&0xfff)+r.bank*0x1000:r.addr&0x7f;
         uint16_t value=offset<size?data[offset]:0;if((type&1)&&offset+1<size)value=type&2?(value<<8)|data[offset+1]:value|(data[offset+1]<<8);values.append(value);}return QString();});
-    if(!error.isEmpty())return;for(int i=0;i<values.size();++i)if(auto*item=table_->item(rows[i],2))item->setText(hex(values[i],type&1?4:2));
+    if(!error.isEmpty())return;QScopedValueRollback<bool> quiet(refreshing_,true);for(int i=0;i<values.size();++i)if(auto*item=table_->item(rows[i],2))item->setText(hex(values[i],type&1?4:2));
+}
+extern "C" void sameboy_debug_mark_battery_dirty(GB_gameboy_t*);
+void CheatSearchDialog::writeValue(int row,const QString&text){
+    if(row<0||row>=results_.size())return;const auto result=results_[row];const int type=type_->currentData().toInt();const auto expression=text.trimmed().toUtf8();
+    // Same addressing as refreshValues and Cocoa addressForRow:; literals and expressions follow the native debugger.
+    const auto error=execute_([&](GB_gameboy_t *gb){uint16_t value=0;if(expression.isEmpty()||GB_debugger_evaluate(gb,expression.constData(),&value,nullptr))return tr("Invalid value or expression.");
+        size_t size;const auto kind=result.addr<0xC000?GB_DIRECT_ACCESS_CART_RAM:result.addr<0xE000?GB_DIRECT_ACCESS_RAM:GB_DIRECT_ACCESS_HRAM;auto *data=static_cast<uint8_t *>(GB_get_direct_access(gb,kind,&size,nullptr));
+        const size_t offset=result.addr<0xC000?(result.addr&0x1fff)+result.bank*0x2000:result.addr<0xE000?(result.addr&0xfff)+result.bank*0x1000:result.addr&0x7f;
+        if(!data||offset+((type&1)?1:0)>=size)return tr("Address is not backed by memory.");
+        if(type&1){data[offset]=uint8_t(type&2?value>>8:value);data[offset+1]=uint8_t(type&2?value:value>>8);}else data[offset]=uint8_t(value);
+        if(kind==GB_DIRECT_ACCESS_CART_RAM)sameboy_debug_mark_battery_dirty(gb);return QString();});
+    if(!error.isEmpty())warn(this,error);refreshValues();
 }
 void CheatSearchDialog::addCheat(){refreshValues();const int row=table_->currentRow();if(row<0)return;const auto result=results_[row];const int type=type_->currentData().toInt();
-    unsigned value;if(!parseHex(table_->item(row,2)->text(),65535,value)){warn(this,tr("Invalid value."));return;}
+    unsigned value;if(!parseValue(table_->item(row,2)->text(),65535,value)){warn(this,tr("Invalid value."));return;}
     const auto error=execute_([&](GB_gameboy_t *gb){
         auto entries=cheatEntries(gb);
         entries.append({tr("Search result"),result.addr,result.bank,uint8_t(type&2?value>>8:value),0,false,true});

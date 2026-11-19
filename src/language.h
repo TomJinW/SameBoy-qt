@@ -1,11 +1,7 @@
 #pragma once
-#include <QLocale>
 #include <QTranslator>
-#include <QStringList>
-inline QString resolvedLanguage(const QString&setting,const QStringList&systemLanguages){
- if(setting=="zh_CN"||setting=="en")return setting;
- for(const auto&name:systemLanguages){const QLocale locale(name);if(locale.language()==QLocale::Chinese&&locale.script()==QLocale::SimplifiedChineseScript)return "zh_CN";}
- return "en";
+inline QString resolvedLanguage(const QString&setting){
+ return setting=="zh_CN"?QStringLiteral("zh_CN"):QStringLiteral("en");
 }
 // All frontend strings share a source-text catalog, including inherited QWidget::tr calls.
 class AppTranslator final:public QTranslator{

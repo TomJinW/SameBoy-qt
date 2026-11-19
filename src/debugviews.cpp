@@ -88,7 +88,8 @@ protected:
  void paintEvent(QPaintEvent*)override{QPainter p(this);const int cols=columns(),cell=width()/cols;QFont cardFont=font();while(cardFont.pointSizeF()>6&&QFontMetrics(cardFont).horizontalAdvance("(255,255)")>cell-48)cardFont.setPointSizeF(cardFont.pointSizeF()-0.5);p.setFont(cardFont);
   for(int row=0;row*84<height();++row)p.fillRect(0,row*84,width(),84,palette().brush(row&1?QPalette::AlternateBase:QPalette::Base));
   for(int i=0;i<objects_.size();++i){const auto&o=objects_[i];const int x=(i%cols)*cell,y=(i/cols)*84;p.save();p.translate(x,y);p.setPen(palette().color(QPalette::Text));
-   p.drawImage(QRect(6,6,32,32),o.image);auto bold=cardFont;bold.setBold(true);p.setFont(bold);p.drawText(44,18,"$"+hex(o.address));p.setFont(cardFont);
+   // Like Cocoa GBObjectView (scale 32/height): 8x8 fills 32x32, 8x16 is 16x32 and centred.
+   const int previewWidth=o.image.height()>0?8*32/o.image.height():32;p.drawImage(QRect(6+(32-previewWidth)/2,6,previewWidth,32),o.image);auto bold=cardFont;bold.setBold(true);p.setFont(bold);p.drawText(44,18,"$"+hex(o.address));p.setFont(cardFont);
    p.drawText(44,36,QString("(%1,%2)").arg(o.x).arg(o.y));QString flags=QString("%1%2%3").arg(o.flags&0x80?'P':'-').arg(o.flags&0x40?'Y':'-').arg(o.flags&0x20?'X':'-');
    flags+=color_?QString("%1%2").arg((o.flags>>3)&1).arg(o.flags&7):QString::number((o.flags>>4)&1);p.drawText(44,54,flags);
    p.drawText(6,74,QString("$%1 $%2").arg(hex(0x8000+o.tile*16)).arg(hex(o.tile,2)));
@@ -195,7 +196,7 @@ VramDialog::VramDialog(DebugExecutor execute,const QFont&font,QWidget*parent,Deb
  auto*objects=new DebugObjects(font);auto*objectScroll=new QScrollArea;objectScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);objectScroll->setWidgetResizable(true);objectScroll->setWidget(objects);tabs->addTab(objectScroll,tr("Objects"));
 
  auto*palettePage=new QWidget;auto*paletteLayout=new QVBoxLayout(palettePage);paletteLayout->setContentsMargins(0,0,0,0);auto*colorFormat=new QComboBox;colorFormat->setObjectName("vramColorFormat");colorFormat->addItems({tr("Game Boy (15-bit)"),tr("RGB (hex)")});paletteLayout->addWidget(colorFormat);
- auto*colors=new QTableWidget(0,4);colors->setObjectName("vramPaletteTable");colors->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);colors->setSelectionMode(QAbstractItemView::NoSelection);colors->setFocusPolicy(Qt::NoFocus);colors->setHorizontalHeaderLabels({"0","1","2","3"});colors->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);paletteLayout->addWidget(colors,1);tabs->addTab(palettePage,tr("Palettes"));
+ auto*colors=new QTableWidget(0,4);colors->setObjectName("vramPaletteTable");auto headerFont=colors->verticalHeader()->font();headerFont.setPointSizeF(qMax(8.0,headerFont.pointSizeF()-1.5));colors->verticalHeader()->setFont(headerFont);colors->verticalHeader()->setMinimumWidth(QFontMetrics(headerFont).horizontalAdvance("OBJ 7")+20);colors->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);colors->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);colors->setSelectionMode(QAbstractItemView::NoSelection);colors->setFocusPolicy(Qt::NoFocus);colors->setHorizontalHeaderLabels({"0","1","2","3"});colors->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);paletteLayout->addWidget(colors,1);tabs->addTab(palettePage,tr("Palettes"));
  auto mapTiles=std::make_shared<QVector<DebugTile>>();auto hoveredMapPoint=std::make_shared<QPoint>(-1,-1);
  auto*refreshSoon=new QTimer(this);refreshSoon->setSingleShot(true);refreshSoon->setInterval(0);
  auto lastPalette=std::make_shared<VramSnapshot>();auto lastFormat=std::make_shared<int>(-1);

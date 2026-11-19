@@ -33,6 +33,25 @@ QString readBatteryFile(QFile&file,QByteArray&bytes){
         return "Battery save could not be read completely.";
     return {};
 }
+// Atomically replace a battery file. On Windows the replacing rename fails while another process
+// (antivirus, indexer, backup, a reader) briefly holds the file open without delete sharing; retry
+// such transient failures with backoff (about 350 ms in all) before reporting, instead of leaving the
+// save for 5 seconds. The wait only happens while the file is actually held.
+QString writeBatteryFile(const QString&path,const QByteArray&bytes){
+#ifdef Q_OS_WIN
+    constexpr int delays[]={0,50,100,200};
+#else
+    constexpr int delays[]={0};
+#endif
+    QString error;
+    for(const int delay:delays){
+        if(delay)std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+        QSaveFile file(path);
+        if(file.open(QIODevice::WriteOnly)&&file.write(bytes)==bytes.size()&&file.commit())return {};
+        error=file.errorString();
+    }
+    return error.isEmpty()?QString("Unknown error"):error;
+}
 struct Output {
     QImage pixels{160, 144, QImage::Format_RGB32};
     QByteArray samples;
@@ -49,7 +68,6 @@ struct Output {
     QImage cameraImage;
     bool cameraPending=false;
     std::chrono::steady_clock::time_point cameraDeadline;
-
 };
 void cameraRequest(GB_gameboy_t*gb){
     auto*out=static_cast<Output*>(GB_get_user_data(gb));out->cameraTicket=out->cameraInput->snapshot();
@@ -70,7 +88,7 @@ void sample(GB_gameboy_t *gb, GB_sample_t *s)
 }
 }
 
-Emulator::Emulator(QByteArray rom, QByteArray boot, QString savePath, bool color, AppSettings settings,unsigned sampleRate,std::shared_ptr<AudioBuffer> output,QString legacySavePath,std::shared_ptr<CameraInput> cameraInput)
+Emulator::Emulator(QByteArray rom, QByteArray boot, QString savePath, int color, AppSettings settings,unsigned sampleRate,std::shared_ptr<AudioBuffer> output,QString legacySavePath,std::shared_ptr<CameraInput> cameraInput)
     : cameraInput_(std::move(cameraInput)),rom_(std::move(rom)), boot_(std::move(boot)), savePath_(std::move(savePath)),legacySavePath_(std::move(legacySavePath)), color_(color), settings_(std::move(settings)),sampleRate_(sampleRate),audioOutput_(std::move(output)) {}
 void Emulator::updateSettings(const AppSettings &settings) { QMutexLocker lock(&mutex_); pendingSettings_ = settings; }
 QString Emulator::execute(std::function<QString(GB_gameboy_t *)> command)
@@ -164,11 +182,8 @@ QString Emulator::swapCartridge(const QByteArray &rom, const QString &savePath,c
                 if(!error.isEmpty())return QString("Could not read the new cartridge battery: %1\n%2").arg(target,error);
             }
         }
-        if(size){
-            QSaveFile save(savePath_);
-            if(!save.open(QIODevice::WriteOnly)||save.write(current)!=current.size()||!save.commit())
-                return QString("Could not save the previous cartridge battery.");
-        }
+        if(size&&!writeBatteryFile(savePath_,current).isEmpty())
+            return QString("Could not save the previous cartridge battery.");
         GB_load_rom_from_buffer(gb, reinterpret_cast<const uint8_t *>(rom.constData()), rom.size());
         rom_ = rom;cameraCartridge_.store(rom.size()>0x147&&uint8_t(rom[0x147])==0xfc); savePath_ = savePath;legacySavePath_=legacySavePath;
         if (!battery.isEmpty()) GB_load_battery_from_buffer(gb, reinterpret_cast<const uint8_t *>(battery.constData()), battery.size());
@@ -181,10 +196,11 @@ QString Emulator::swapCartridge(const QByteArray &rom, const QString &savePath,c
 QString Emulator::flushBattery(){return execute([this](GB_gameboy_t*g){
     const auto size=GB_save_battery_size(g);if(!size)return QString();
     if(batteryReadFailed_)return QString("The original battery could not be read; automatic saving is disabled.");
-    QByteArray bytes(size,0);QSaveFile file(savePath_);
-    if(GB_save_battery_to_buffer(g,reinterpret_cast<uint8_t*>(bytes.data()),bytes.size())||
-       !file.open(QIODevice::WriteOnly)||file.write(bytes)!=bytes.size()||!file.commit())
-        return QString("Cannot write battery save: %1\n%2").arg(savePath_,file.errorString());
+    QByteArray bytes(size,0);
+    if(GB_save_battery_to_buffer(g,reinterpret_cast<uint8_t*>(bytes.data()),bytes.size()))
+        return QString("Cannot write battery save: %1").arg(savePath_);
+    if(const auto error=writeBatteryFile(savePath_,bytes);!error.isEmpty())
+        return QString("Cannot write battery save: %1\n%2").arg(savePath_,error);
     GB_clear_battery_dirty(g);discardFinalBattery_=false;return QString();
 });}
 void Emulator::discardBatteryOnClose(bool discard){execute([this,discard](GB_gameboy_t*){discardFinalBattery_=discard;return QString();});}
@@ -280,13 +296,12 @@ void Emulator::run()
         if (!size) return true;
         if(batteryReadFailed_){QMutexLocker lock(&mutex_);error_="Battery was not saved because the original save could not be read: "+savePath_;return false;}
         QByteArray bytes(size, '\0');
-        QSaveFile file(savePath_);
-        if (GB_save_battery_to_buffer(gb, reinterpret_cast<uint8_t *>(bytes.data()), bytes.size()) == 0
-            && file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size() && file.commit()) {
+        const auto error=GB_save_battery_to_buffer(gb, reinterpret_cast<uint8_t *>(bytes.data()), bytes.size())?QString("Could not serialize the battery."):writeBatteryFile(savePath_,bytes);
+        if (error.isEmpty()) {
             GB_clear_battery_dirty(gb);return true;
         } else {
             QMutexLocker lock(&mutex_);
-            error_ = "Cannot write battery save: " + savePath_ + "\n" + file.errorString();return false;
+            error_ = "Cannot write battery save: " + savePath_ + "\n" + error;return false;
         }
     };
     out.reload=[&,this]{
@@ -317,7 +332,18 @@ void Emulator::run()
     };
     using Clock = std::chrono::steady_clock;
     auto next = Clock::now();
-    auto lastSave = next;
+    // Like Cocoa's batteryTimerExpired, save once a battery write burst has been quiet for a whole
+    // 0.25 s interval, so a game's multi-frame save routine is never written out halfway. A battery
+    // that never goes quiet (frequent RTC latching, SRAM used as work RAM) still persists every 5 s.
+    auto batteryCheck=next,batteryPendingSince=next,batteryRetry=next;bool batteryPending=false;
+    auto batteryTick=[&](Clock::time_point now){
+        if(now-batteryCheck<std::chrono::milliseconds(250))return;batteryCheck=now;
+        bool writing=GB_get_battery_dirty(gb);GB_clear_battery_dirty(gb);
+        if(writing&&!batteryPending){batteryPending=true;batteryPendingSince=now;}
+        if(!batteryPending||now<batteryRetry||(writing&&now-batteryPendingSince<std::chrono::seconds(5)))return;
+        if(persist())batteryPending=false;else batteryRetry=now+std::chrono::seconds(5);
+        batteryPendingSince=now;
+    };
     auto measureStart=next;uint64_t emulatedNanoseconds=0;
     unsigned frameNumber = 0;
     bool printerConnected=false;int cameraMode=-1;
@@ -340,6 +366,8 @@ void Emulator::run()
             { QMutexLocker lock(&mutex_); pending.swap(pendingSettings_); }
             if (pending) { settings_ = *pending; applySettings(); }
         }
+        // Runs while paused or stopped in the debugger too: memory-viewer edits mark the battery dirty.
+        batteryTick(Clock::now());
         if(!GB_debugger_is_stopped(gb)&&debugPending_.load())sameboy_debug_async(gb);
         if(settings_.developerMode&&GB_debugger_is_stopped(gb)&&debugStopped_.load()&&!debugPending_.load()){
             if(coreGuard.owns_lock())coreGuard.unlock();std::this_thread::sleep_for(std::chrono::milliseconds(5));next=Clock::now();continue;
@@ -375,6 +403,11 @@ void Emulator::run()
             },[](GB_gameboy_t*g){static_cast<Output*>(GB_get_user_data(g))->printer({{},true});});
             else {GB_disconnect_serial(gb);out.printer({{},true});}
         }
+        sameboy_force_cpu_speed(gb,settings_.cpuFrequency);
+        if(connection)connection->setCpuFrequencyLocked(linkSide_,settings_.cpuFrequency);
+        if(paused_.load()||GB_debugger_is_stopped(gb)){
+            GB_set_clock_multiplier(gb,1);cpuFrequencyHz_.store(double(GB_get_clock_rate(gb))*sameboy_cpu_speed_factor(gb));recordingFrameRate_.store(GB_get_usual_frame_rate(gb));
+        }
         if (paused_.load()) {
             if(connection)connection->setSpeedLocked(linkSide_,1);
             if(coreGuard.owns_lock())coreGuard.unlock();
@@ -398,11 +431,10 @@ void Emulator::run()
         // Match Cocoa: underclock the core so it generates a full-duration audio stream.
         // Pacing/statistics below use the unmultiplied rate to avoid slowing twice.
         const double slowClock=connection||(actions&4)?1.0:(actions&64)?1.0/32:(actions&32)?1.0/8:(actions&16)?0.5:std::clamp(double(input.speed),1.0/3,1.0);
-        constexpr double gameBoyClockHz=4194304.0;
-        const double nominalClock=settings_.cpuFrequency==1?gameBoyClockHz:settings_.cpuFrequency==2?2.0*gameBoyClockHz:double(GB_get_unmultiplied_clock_rate(gb));
-        const double forcedClock=nominalClock/GB_get_unmultiplied_clock_rate(gb);
         if(audioOutput_){const double nativeFps=GB_get_usual_frame_rate(gb)*GB_get_unmultiplied_clock_rate(gb)/GB_get_clock_rate(gb);audioOutput_->setLatencyBudget(slowClock<0.5?unsigned(2000/nativeFps/slowClock+40):50);}
-        GB_set_clock_multiplier(gb,forcedClock*slowClock);
+        GB_set_clock_multiplier(gb,slowClock);
+        cpuFrequencyHz_.store(double(GB_get_clock_rate(gb))*sameboy_cpu_speed_factor(gb));
+        recordingFrameRate_.store(GB_get_usual_frame_rate(gb)/slowClock);
         const bool motion=GB_has_accelerometer(gb);hasMotion_.store(motion);
         if(motion)GB_set_accelerometer_values(gb,input.motionX,input.motionY);
         for(unsigned p=0;p<4;++p){
@@ -423,10 +455,11 @@ void Emulator::run()
             coreGuard.unlock();const bool ready=connection->runFrame(linkSide_);coreGuard=connection->lock();
             if(!ready){debugStopped_=settings_.developerMode&&GB_debugger_is_stopped(gb);coreGuard.unlock();std::this_thread::sleep_for(std::chrono::milliseconds(2));next=Clock::now();continue;}
             ticks=out.linkCycles-out.reportedCycles;out.reportedCycles=out.linkCycles;
-        }else{out.frameReady=false;while(!out.frameReady&&!isInterruptionRequested()){const auto cycles=sameboy_debug_run(gb);ticks+=cycles;if(!cycles&&GB_debugger_is_stopped(gb))break;}}
+        }else{out.frameReady=false;while(!out.frameReady&&!isInterruptionRequested()){const auto cycles=sameboy_debug_run(gb,settings_.cpuFrequency);ticks+=cycles;
+            if(!cycles&&GB_debugger_is_stopped(gb))break;}}
         debugStopped_=settings_.developerMode&&GB_debugger_is_stopped(gb);
         if(debugStopped_&&!out.frameReady){finishFrameStep(gb,"Frame step interrupted by debugger");out.samples.clear();if(audioOutput_)audioOutput_->clear();{QMutexLocker lock(&mutex_);audio_.clear();}if(coreGuard.owns_lock())coreGuard.unlock();next=Clock::now();std::this_thread::sleep_for(std::chrono::milliseconds(2));continue;}
-        const auto duration = ticks * 1000000000ULL / (2ULL * GB_get_unmultiplied_clock_rate(gb));
+        const auto duration = uint64_t(ticks * 1000000000.0 / (2.0 * GB_get_unmultiplied_clock_rate(gb)));
         emulatedNanoseconds+=duration;
         if (rewind) {
             // Reverse stereo frames, keeping each left/right sample pair together.
@@ -436,12 +469,12 @@ void Emulator::run()
         }
         {
             QMutexLocker lock(&mutex_);
-            cpuLoad_.push_back({nextCpuSample_++,out.frameCpu,out.secondCpu});if(cpuLoad_.size()>256)cpuLoad_.pop_front();
+            cpuLoad_.push_back({nextCpuSample_++,out.frameCpu,out.secondCpu});if(cpuLoad_.size()>256)cpuLoad_.pop_front();emulatedFrames_.fetch_add(1);
             previousFrame_=lastCoreFrame_;lastCoreFrame_=out.pixels.copy();frame_=lastCoreFrame_;
             oddFrame_=GB_is_odd_frame(gb);sgbFrame_=GB_is_sgb(gb);
             if(videoCapture_){if(videoFrames_.size()>=120){videoCapture_=false;videoError_="Video encoding could not keep up; recording stopped without silently dropping frames.";}else{
                 const int blend=settings_.blending==2?(sgbFrame_?1:oddFrame_?3:2):settings_.blending;
-                const double fps=GB_get_usual_frame_rate(gb)*GB_get_unmultiplied_clock_rate(gb)/GB_get_clock_rate(gb);
+                const double fps=recordingFrameRate_.load();
                 videoFrames_.push_back({lastCoreFrame_,previousFrame_,out.samples,sampleRate_,fps,settings_.scaling,blend});
             }}
             // At most 100 ms of pending PCM, even if the UI is busy.
@@ -457,10 +490,6 @@ void Emulator::run()
         if(now-measureStart>=std::chrono::milliseconds(250)){
             speed_.store(double(emulatedNanoseconds)/std::chrono::duration_cast<std::chrono::nanoseconds>(now-measureStart).count());
             measureStart=now;emulatedNanoseconds=0;
-        }
-        if (now - lastSave > std::chrono::seconds(5)) {
-            if (GB_get_battery_dirty(gb)) persist();
-            lastSave = now;
         }
         double speed;
         if(connection)speed=connection->speedLocked();

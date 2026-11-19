@@ -15,8 +15,8 @@
       <translation>%1（连接 %2）</translation>
     </message>
     <message>
-      <source>%1 FPS</source>
-      <translation>%1 FPS</translation>
+      <source>%1 FPS · %2 drawn</source>
+      <translation>%1 FPS · 显示 %2</translation>
     </message>
     <message>
       <source>%1 fps</source>
@@ -123,8 +123,16 @@
       <translation>30 秒</translation>
     </message>
     <message>
+      <source>4 MHz</source>
+      <translation>4 MHz</translation>
+    </message>
+    <message>
       <source>5 minutes</source>
       <translation>5 分钟</translation>
+    </message>
+    <message>
+      <source>8 MHz</source>
+      <translation>8 MHz</translation>
     </message>
     <message>
       <source>8-Bit</source>
@@ -137,6 +145,10 @@
     <message>
       <source>A / Cross (South)</source>
       <translation>A / ×（下）</translation>
+    </message>
+    <message>
+      <source>AIFF audio (*.aiff *.aif)</source>
+      <translation>AIFF 音频 (*.aiff *.aif)</translation>
     </message>
     <message>
       <source>About SameBoy Qt</source>
@@ -263,6 +275,14 @@
       <translation>音频与性能…</translation>
     </message>
     <message>
+      <source>Audio recording ended</source>
+      <translation>录音已结束</translation>
+    </message>
+    <message>
+      <source>Audio recording started</source>
+      <translation>已开始录音</translation>
+    </message>
+    <message>
       <source>Audio recording stopped: file limit or write error.</source>
       <translation>录音已停止：达到文件大小上限或写入失败。</translation>
     </message>
@@ -273,6 +293,10 @@
     <message>
       <source>Auto refresh</source>
       <translation>自动刷新</translation>
+    </message>
+    <message>
+      <source>Automatic</source>
+      <translation>自动</translation>
     </message>
     <message>
       <source>Automatic (GB / GBC)</source>
@@ -367,8 +391,16 @@
       <translation>内置</translation>
     </message>
     <message>
+      <source>CPU Frequency</source>
+      <translation>CPU 频率</translation>
+    </message>
+    <message>
       <source>CPU Load</source>
       <translation>CPU 负载</translation>
+    </message>
+    <message>
+      <source>CPU Load @ %1 MHz</source>
+      <translation>CPU 负载 @ %1 MHz</translation>
     </message>
     <message>
       <source>CRT display</source>
@@ -531,6 +563,10 @@
       <translation>关闭</translation>
     </message>
     <message>
+      <source>Close ROM</source>
+      <translation>关闭 ROM</translation>
+    </message>
+    <message>
       <source>Code</source>
       <translation>代码</translation>
     </message>
@@ -643,12 +679,12 @@
       <translation>无法完成录音文件。</translation>
     </message>
     <message>
-      <source>Could not print the complete paper roll.</source>
-      <translation>无法打印完整纸带。</translation>
+      <source>Could not prepare separate save files for this ROM.</source>
+      <translation>无法为此 ROM 准备独立存档文件。</translation>
     </message>
     <message>
-      <source>Could not restart the application. Please launch it again manually.</source>
-      <translation>无法重启应用，请手动重新启动。</translation>
+      <source>Could not print the complete paper roll.</source>
+      <translation>无法打印完整纸带。</translation>
     </message>
     <message>
       <source>Could not restore all windows after a settings error. Reopen the affected ROMs.</source>
@@ -675,8 +711,20 @@
       <translation>无法启动本地 IPC：%1</translation>
     </message>
     <message>
+      <source>Could not start the debug interface: %1</source>
+      <translation>无法启动调试接口：%1</translation>
+    </message>
+    <message>
       <source>Could not write %1: %2</source>
       <translation>无法写入 %1：%2</translation>
+    </message>
+    <message>
+      <source>Current CPU frequency: %1 MHz</source>
+      <translation>当前 CPU 频率：%1 MHz</translation>
+    </message>
+    <message>
+      <source>Current CPU frequency: —</source>
+      <translation>当前 CPU 频率：—</translation>
     </message>
     <message>
       <source>Current Value</source>
@@ -713,6 +761,14 @@
     <message>
       <source>Dark</source>
       <translation>深色</translation>
+    </message>
+    <message>
+      <source>Dark theme is temporarily unavailable on Windows 10.</source>
+      <translation>Windows 10 上暂时无法使用深色主题。</translation>
+    </message>
+    <message>
+      <source>Dark theme is unavailable on Windows 10. The app uses Light even when following system appearance.</source>
+      <translation>Windows 10 暂不支持深色主题；即使选择“跟随系统”，应用也会使用浅色主题。</translation>
     </message>
     <message>
       <source>Data Type:</source>
@@ -763,22 +819,6 @@
       <translation>开发者模式</translation>
     </message>
     <message>
-      <source>CPU Frequency</source>
-      <translation>CPU 频率</translation>
-    </message>
-    <message>
-      <source>Automatic</source>
-      <translation>自动</translation>
-    </message>
-    <message>
-      <source>4 MHz</source>
-      <translation>4 MHz</translation>
-    </message>
-    <message>
-      <source>8 MHz</source>
-      <translation>8 MHz</translation>
-    </message>
-    <message>
       <source>Device:</source>
       <translation>设备：</translation>
     </message>
@@ -819,6 +859,10 @@
       <translation>已断开的手柄</translation>
     </message>
     <message>
+      <source>Disconnected device (using system default)</source>
+      <translation>设备已断开（暂用系统默认设备）</translation>
+    </message>
+    <message>
       <source>Display Border</source>
       <translation>显示边框</translation>
     </message>
@@ -839,10 +883,8 @@
       <translation>下</translation>
     </message>
     <message>
-      <source>Drop a Game Boy / Game Boy Color ROM here
-or open with Ctrl+O</source>
-      <translation>将 Game Boy / Game Boy Color ROM 拖到此处
-或按 Ctrl+O 打开</translation>
+      <source>Drop a Game Boy / Game Boy Color ROM here</source>
+      <translation>将 Game Boy / Game Boy Color ROM 拖到此处</translation>
     </message>
     <message>
       <source>Duplicate binding</source>
@@ -925,6 +967,10 @@ or open with Ctrl+O</source>
       <translation>表达式：</translation>
     </message>
     <message>
+      <source>Fast forwarding…</source>
+      <translation>快进中…</translation>
+    </message>
+    <message>
       <source>Flat CRT display</source>
       <translation>平面 CRT 显示器</translation>
     </message>
@@ -939,6 +985,10 @@ or open with Ctrl+O</source>
     <message>
       <source>For rumble-enabled Game Paks</source>
       <translation>支持振动的卡带</translation>
+    </message>
+    <message>
+      <source>Force CPU Frequency</source>
+      <translation>强制 CPU 频率</translation>
     </message>
     <message>
       <source>Force integer scale</source>
@@ -957,8 +1007,8 @@ or open with Ctrl+O</source>
       <translation>混帧：</translation>
     </message>
     <message>
-      <source>Frames presented to the game view per second</source>
-      <translation>每秒在游戏画面中呈现的帧数</translation>
+      <source>Frames emulated per second · frames drawn to the game view per second</source>
+      <translation>每秒模拟的帧数 · 每秒实际画到游戏画面的帧数</translation>
     </message>
     <message>
       <source>GBS Player</source>
@@ -989,8 +1039,8 @@ or open with Ctrl+O</source>
       <translation>Game Boy ROM (*.gb *.gbc)</translation>
     </message>
     <message>
-      <source>Game Boy files (*.gb *.gbc *.gbs);;All files (*)</source>
-      <translation>Game Boy 文件 (*.gb *.gbc *.gbs);;所有文件 (*)</translation>
+      <source>Game Boy files (*.gb *.gbc *.gbs *.isx);;All files (*)</source>
+      <translation>Game Boy 文件 (*.gb *.gbc *.gbs *.isx);;所有文件 (*)</translation>
     </message>
     <message>
       <source>Game Boy revision:</source>
@@ -1165,6 +1215,10 @@ or open with Ctrl+O</source>
       <translation>搜索表达式无效。</translation>
     </message>
     <message>
+      <source>Invalid value or expression.</source>
+      <translation>无效的数值或表达式。</translation>
+    </message>
+    <message>
       <source>Invalid value.</source>
       <translation>数值无效。</translation>
     </message>
@@ -1221,7 +1275,7 @@ or open with Ctrl+O</source>
       <translation>LCD 显示器</translation>
     </message>
     <message>
-      <source>Language changes take effect after restarting the application.</source>
+      <source>Language changes take effect the next time you launch the app.</source>
       <translation>语言更改会在下次启动应用时生效。</translation>
     </message>
     <message>
@@ -1385,6 +1439,10 @@ or open with Ctrl+O</source>
       <translation>体感灵敏度：</translation>
     </message>
     <message>
+      <source>Mute / unmute</source>
+      <translation>静音 / 取消静音</translation>
+    </message>
+    <message>
       <source>Mute Sound</source>
       <translation>静音</translation>
     </message>
@@ -1469,8 +1527,8 @@ or open with Ctrl+O</source>
       <translation>OmniScale 旧版</translation>
     </message>
     <message>
-      <source>On-screen display (frame rate)</source>
-      <translation>屏幕叠加信息（帧率）</translation>
+      <source>On-screen display (frame rate and events)</source>
+      <translation>屏幕显示（帧率和事件提示）</translation>
     </message>
     <message>
       <source>Only for Super Game Boy</source>
@@ -1493,6 +1551,10 @@ or open with Ctrl+O</source>
       <translation>打开 ROM</translation>
     </message>
     <message>
+      <source>Open ROM…</source>
+      <translation>打开 ROM…</translation>
+    </message>
+    <message>
       <source>Open Recent</source>
       <translation>最近打开</translation>
     </message>
@@ -1501,8 +1563,16 @@ or open with Ctrl+O</source>
       <translation>在新窗口中打开另一 ROM 即可连接</translation>
     </message>
     <message>
+      <source>Open: %1</source>
+      <translation>打开：%1</translation>
+    </message>
+    <message>
       <source>Open…</source>
       <translation>打开…</translation>
+    </message>
+    <message>
+      <source>Output device:</source>
+      <translation>输出设备：</translation>
     </message>
     <message>
       <source>Output scale:</source>
@@ -1563,12 +1633,12 @@ A lower sample rate and dropped audio are different issues. Underflows during st
       <translation>暂停 / 继续</translation>
     </message>
     <message>
-      <source>Pause: Ctrl+P
-Preferences: Ctrl+,
-Save Screenshot: Ctrl+S</source>
-      <translation>暂停：Ctrl+P
-偏好设置：Ctrl+,
-保存截图：Ctrl+S</translation>
+      <source>Pause: %1
+%2: %3
+Save Screenshot: %4</source>
+      <translation>暂停：%1
+%2：%3
+保存截图：%4</translation>
     </message>
     <message>
       <source>Paused</source>
@@ -1655,8 +1725,16 @@ Save Screenshot: Ctrl+S</source>
       <translation>快速重置</translation>
     </message>
     <message>
+      <source>Quick load (slot %1)</source>
+      <translation>快速读档（位置 %1）</translation>
+    </message>
+    <message>
       <source>Quick load (slot 1)</source>
       <translation>快速读档（位置 1）</translation>
+    </message>
+    <message>
+      <source>Quick save (slot %1)</source>
+      <translation>快速存档（位置 %1）</translation>
     </message>
     <message>
       <source>Quick save (slot 1)</source>
@@ -1677,6 +1755,10 @@ Save Screenshot: Ctrl+S</source>
     <message>
       <source>Raw Game Boy color: $%1 · RGB: %2</source>
       <translation>Game Boy 原始色值：$%1 · RGB：%2</translation>
+    </message>
+    <message>
+      <source>Raw PCM, 16-bit stereo little-endian (*.raw *.pcm)</source>
+      <translation>原始 PCM，16 位立体声小端序 (*.raw *.pcm)</translation>
     </message>
     <message>
       <source>Ready</source>
@@ -1735,14 +1817,6 @@ Save Screenshot: Ctrl+S</source>
       <translation>重新开始</translation>
     </message>
     <message>
-      <source>Restart Application</source>
-      <translation>重启应用</translation>
-    </message>
-    <message>
-      <source>Restart saves settings and reopens the current ROM windows.</source>
-      <translation>重启会保存设置，并重新打开当前的 ROM 窗口。</translation>
-    </message>
-    <message>
       <source>Restore Default Palettes</source>
       <translation>恢复默认调色板</translation>
     </message>
@@ -1757,6 +1831,10 @@ Save Screenshot: Ctrl+S</source>
     <message>
       <source>Rewinding duration:</source>
       <translation>倒带时长：</translation>
+    </message>
+    <message>
+      <source>Rewinding…</source>
+      <translation>倒带中…</translation>
     </message>
     <message>
       <source>Right</source>
@@ -1815,14 +1893,6 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
       <translation>采样率：</translation>
     </message>
     <message>
-      <source>Unsaved ROM Modifications</source>
-      <translation>未保存的 ROM 修改</translation>
-    </message>
-    <message>
-      <source>Save changes to the ROM before closing it?</source>
-      <translation>关闭前是否保存对 ROM 的修改？</translation>
-    </message>
-    <message>
       <source>Save</source>
       <translation>保存</translation>
     </message>
@@ -1851,6 +1921,10 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
       <translation>保存即时存档</translation>
     </message>
     <message>
+      <source>Save changes to the ROM before closing it?</source>
+      <translation>关闭前是否保存对 ROM 的修改？</translation>
+    </message>
+    <message>
       <source>Save printer feed</source>
       <translation>保存打印纸带</translation>
     </message>
@@ -1873,6 +1947,18 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
     <message>
       <source>Screenshot</source>
       <translation>截图</translation>
+    </message>
+    <message>
+      <source>Screenshot copied</source>
+      <translation>已复制截图</translation>
+    </message>
+    <message>
+      <source>Screenshot saved</source>
+      <translation>已保存截图</translation>
+    </message>
+    <message>
+      <source>Screenshot scale:</source>
+      <translation>截图缩放倍率：</translation>
     </message>
     <message>
       <source>Scrolling</source>
@@ -1905,6 +1991,14 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
     <message>
       <source>Separate Joy-Cons</source>
       <translation>分离 Joy-Con</translation>
+    </message>
+    <message>
+      <source>Settings</source>
+      <translation>设置</translation>
+    </message>
+    <message>
+      <source>Settings…</source>
+      <translation>设置…</translation>
     </message>
     <message>
       <source>Shade %1</source>
@@ -1963,6 +2057,10 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
       <translation>慢动作</translation>
     </message>
     <message>
+      <source>Slow motion…</source>
+      <translation>慢动作…</translation>
+    </message>
+    <message>
       <source>Smooth bilinear (Less blurry)</source>
       <translation>平滑双线性（较清晰）</translation>
     </message>
@@ -1989,6 +2087,14 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
     <message>
       <source>Start Video Recording…</source>
       <translation>开始录屏…</translation>
+    </message>
+    <message>
+      <source>State loaded</source>
+      <translation>已读取即时存档</translation>
+    </message>
+    <message>
+      <source>State saved</source>
+      <translation>已保存即时存档</translation>
     </message>
     <message>
       <source>Step Into</source>
@@ -2045,6 +2151,10 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
     <message>
       <source>The camera starts only when a Game Boy Camera game requests a picture. Pausing or closing the game stops capture. Images are cropped to the center and converted to grayscale; the emulated camera handles exposure and dithering. If access fails, the game receives a blank image instead of waiting indefinitely.</source>
       <translation>仅在 Game Boy Camera 游戏请求图像时启动相机；暂停或关闭游戏时停止采集。图像居中裁剪并转为灰度，曝光和抖动由模拟相机处理。访问失败时向游戏提供空白图像，避免一直等待。</translation>
+    </message>
+    <message>
+      <source>The cartridge ROM is not available.</source>
+      <translation>卡带 ROM 不可用。</translation>
     </message>
     <message>
       <source>The existing SameBoy Qt process is not responding.</source>
@@ -2111,6 +2221,10 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
       <translation>未分配</translation>
     </message>
     <message>
+      <source>Unsaved ROM Modifications</source>
+      <translation>未保存的 ROM 修改</translation>
+    </message>
+    <message>
       <source>Untitled Palette</source>
       <translation>未命名调色板</translation>
     </message>
@@ -2137,6 +2251,10 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
     <message>
       <source>Use joysticks as faux analog controls</source>
       <translation>使用摇杆模拟模拟量输入</translation>
+    </message>
+    <message>
+      <source>VGM register log (*.vgm)</source>
+      <translation>VGM 寄存器记录 (*.vgm)</translation>
     </message>
     <message>
       <source>VRAM Viewer</source>
@@ -2189,6 +2307,10 @@ SameBoy © 2015–2026 Lior Halphon（Expat 许可证）。</translation>
     <message>
       <source>Window</source>
       <translation>窗口</translation>
+    </message>
+    <message>
+      <source>Windows 10 uses the light theme, including when following system appearance.</source>
+      <translation>Windows 10 上暂时使用浅色主题，包括选择“跟随系统”时。</translation>
     </message>
     <message>
       <source>Workboy</source>

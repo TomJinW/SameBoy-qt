@@ -59,4 +59,6 @@ private:
     void reset();
     void refreshValues();
     void addCheat();
+    void writeValue(int row,const QString&text);
+    bool refreshing_=false;
 };

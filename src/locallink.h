@@ -13,12 +13,13 @@ public:
     void detachLocked(int side);
     bool runFrame(int side);
     void consumeFrameLocked(int side){*ports_[side].ready=false;condition_.notify_all();}
+    void setCpuFrequencyLocked(int side,int mode){ports_[side].cpuFrequency=mode;}
     void setSpeedLocked(int side,double speed){ports_[side].speed=speed;}
     double speedLocked()const;
     void startBitLocked(int side,bool bit){ports_[side].bit=bit;}
     bool endBitLocked(int side);
     void infraredLocked(int side,bool on);
 private:
-    struct Port{GB_gameboy_t*core=nullptr;bool*ready=nullptr;uint64_t*cycles=nullptr;std::atomic<bool>*paused=nullptr;bool bit=true,infrared=false;double speed=1;std::atomic<bool>*debugStopped=nullptr,*debugPending=nullptr;};
+    struct Port{GB_gameboy_t*core=nullptr;bool*ready=nullptr;uint64_t*cycles=nullptr;std::atomic<bool>*paused=nullptr;bool bit=true,infrared=false;double speed=1;std::atomic<bool>*debugStopped=nullptr,*debugPending=nullptr;int cpuFrequency=0;};
     Port ports_[2];std::mutex mutex_;std::condition_variable condition_;int64_t offset_=0;
 };

@@ -22,5 +22,17 @@ int main(int argc,char **argv){QCoreApplication app(argc,argv);AudioBuffer audio
     AudioBuffer canceled(96000);std::promise<void> started;auto callback=std::async(std::launch::async,[&]{started.set_value();return canceled.read(192000);});
     started.get_future().wait();std::this_thread::sleep_for(std::chrono::milliseconds(10));canceled.clear();
     if(callback.wait_for(std::chrono::milliseconds(60))!=std::future_status::ready||callback.get()!=QByteArray(192000,0)){std::fputs("Clearing audio did not cancel the waiting callback\n",stderr);return 1;}
+    // A backend may destroy its stream on device removal while the source
+    // remains alive. Disconnect must prevent already-produced data from
+    // reaching that retired stream (Qt queued signal calls survive disconnect).
+    AudioBuffer unplugged(48000);int retiredCallbacks=0;
+    auto oldStream=QObject::connect(&unplugged,&QIODevice::readyRead,&unplugged,[&]{++retiredCallbacks;});
+    std::thread queuedProducer([&]{for(int i=0;i<100;++i)unplugged.append(samples(8));});queuedProducer.join();
+    QObject::disconnect(oldStream);QCoreApplication::processEvents();
+    if(retiredCallbacks){std::fputs("Queued PCM notification reached a retired audio stream\n",stderr);return 1;}
+    int replacementCallbacks=0;auto replacement=QObject::connect(&unplugged,&QIODevice::readyRead,&unplugged,[&]{++replacementCallbacks;});
+    std::thread nextProducer([&]{unplugged.append(samples(8));});nextProducer.join();QCoreApplication::processEvents();
+    if(replacementCallbacks!=1)return 1;
+    QObject::disconnect(replacement);
     std::puts("96 kHz pull buffer, stereo alignment, latest-block overflow recovery and underrun padding passed.");return 0;
 }

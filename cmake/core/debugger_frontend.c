@@ -16,11 +16,15 @@ static char *debug_input(GB_gameboy_t *gb){
     return NULL;
 }
 void sameboy_debug_attach(GB_gameboy_t *gb){GB_set_input_callback(gb,debug_input);}
-unsigned sameboy_debug_run(GB_gameboy_t *gb){
-    if(!gb->debug_active)return GB_run(gb);
+void sameboy_force_cpu_speed(GB_gameboy_t *gb,int mode){
+    if(mode){gb->cgb_double_speed=mode==2;gb->speed_switch_countdown=0;}
+}
+unsigned sameboy_debug_run(GB_gameboy_t *gb,int mode){
+    sameboy_force_cpu_speed(gb,mode);
+    if(!gb->debug_active){unsigned cycles=GB_run(gb);sameboy_force_cpu_speed(gb,mode);return cycles;}
     DebugFrame frame;frame.previous=active_frame;frame.core=gb;active_frame=&frame;
     unsigned cycles=0;if(setjmp(frame.jump)==0)cycles=GB_run(gb);
-    active_frame=frame.previous;return cycles;
+    active_frame=frame.previous;sameboy_force_cpu_speed(gb,mode);return cycles;
 }
 void sameboy_debug_async(GB_gameboy_t *gb){GB_debugger_handle_async_commands(gb);}
 void sameboy_debug_enable(GB_gameboy_t *gb,bool enabled){
@@ -34,3 +38,5 @@ void sameboy_debug_load_symbols(GB_gameboy_t *gb,const char *bytes,size_t size){
         }start=end+1;
     }
 }
+
+unsigned sameboy_cpu_speed_factor(GB_gameboy_t *gb){return gb->cgb_double_speed?2:1;}

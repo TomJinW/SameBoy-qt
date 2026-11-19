@@ -10,6 +10,7 @@
 #include "controllers.h"
 #include "printerwindow.h"
 #include "storagepaths.h"
+#include "stateio.h"
 #include "cartridgeinstance.h"
 #include "locallink.h"
 #include "gbsplayer.h"
@@ -20,8 +21,8 @@
 #include "coreallocation.h"
 #include <QUuid>
 #include <QDateTime>
+#include <QCryptographicHash>
 #include "windowplacement.h"
-#include "restartsession.h"
 #include <QContextMenuEvent>
 #include <QStackedWidget>
 #include <QMouseEvent>
@@ -52,8 +53,10 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QSaveFile>
+#include <QTemporaryFile>
 #include <QSettings>
 #include <QSignalBlocker>
+#include <QScopedValueRollback>
 
 namespace {
 QList<QPointer<MainWindow>> controllerWindows; // Most recently activated game first.
@@ -84,15 +87,45 @@ QString droppedRom(const QMimeData *mime)
     const QFileInfo file(urls.first().toLocalFile());
     const auto suffix = file.suffix().toLower();
     if (file.isDir() && suffix == "gbcart" && QFileInfo::exists(file.filePath() + "/rom.gbl")) return file.absoluteFilePath();
-    if (!file.isFile() || (suffix != "gb" && suffix != "gbc" && suffix != "gbs")) return {};
+    if (!file.isFile() || (suffix != "gb" && suffix != "gbc" && suffix != "gbs" && suffix != "isx")) return {};
     return file.absoluteFilePath();
+}
+
+// Cocoa GBView draggingEntered:/performDragOperation: loads a dropped save state into the running
+// game. Recognise it by content (bounded read), not by extension, like GB_is_save_state.
+QString droppedState(const QMimeData *mime)
+{
+    const auto urls = mime->urls();
+    if (urls.size() != 1 || !urls.first().isLocalFile()) return {};
+    const QFileInfo info(urls.first().toLocalFile());
+    if (!info.isFile()) return {};
+    QFile file(info.absoluteFilePath());QByteArray bytes;GB_model_t model;
+    if (!readStateFile(file,bytes).isEmpty() || GB_get_state_model_from_buffer(reinterpret_cast<const uint8_t *>(bytes.constData()),bytes.size(),&model)) return {};
+    return info.absoluteFilePath();
 }
 
 }
 
 struct MainWindow::PreparedRom {
-    QString path,source;QByteArray rom,boot;bool color=false,isGbs=false;GB_gbs_info_t gbsInfo{};quint64 generation=0;bool readyToReplace=false;
+    QString path,source;QByteArray rom,boot;int color=0;bool isGbs=false;GB_gbs_info_t gbsInfo{};quint64 generation=0;bool readyToReplace=false;
 };
+namespace {
+bool readBootRom(QWidget*parent,const AppSettings&settings,int color,QByteArray&bytes){
+    const auto name = settings.bootName(color);
+    QFile boot(settings.bootFolder.isEmpty() ? ":/bootroms/" + name : QDir(settings.bootFolder).filePath(name));
+    if (!boot.open(QIODevice::ReadOnly)) {
+        QMessageBox::critical(parent, QObject::tr("Boot ROM"), QObject::tr("Cannot read boot ROM:\n%1").arg(boot.fileName()));
+        return false;
+    }
+    if (boot.size() < 256 || boot.size() > 2304) {
+        QMessageBox::warning(parent, QObject::tr("Boot ROM"), QObject::tr("Boot ROM must be between 256 and 2304 bytes.")); return false;
+    }
+    if(!readBoundedFile(boot,bytes,2304,256)){
+        QMessageBox::warning(parent,QObject::tr("Boot ROM"),QObject::tr("Cannot read boot ROM:\n%1").arg(boot.fileName()));return false;
+    }
+    return true;
+}
+}
 
 MainWindow::MainWindow() : screen_(new ScreenWidget(this)), timer_(new QTimer(this))
 {
@@ -100,6 +133,10 @@ MainWindow::MainWindow() : screen_(new ScreenWidget(this)), timer_(new QTimer(th
     aiId_=QUuid::createUuid().toString(QUuid::WithoutBraces);consoleSideClock_.start();
     setWindowTitle("SameBoy Qt[*]");
     setAcceptDrops(true);
+    auto*devices=new QMediaDevices(this);devices->setObjectName("audioDevices");
+    connect(devices,&QMediaDevices::audioOutputsChanged,this,[this]{scheduleAudioRebuild();},Qt::QueuedConnection);
+    connect(devices,&QMediaDevices::audioInputsChanged,this,[this]{scheduleAudioRebuild();},Qt::QueuedConnection);
+    screen_->openRomRequested=[this]{if(!emulator_)chooseRom();};
     views_=new CartridgeViews(this);views_->addWidget(screen_);gbsPlayer_=new GbsPlayer;gbsPlayer_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);views_->addWidget(gbsPlayer_);setCentralWidget(views_);
     gbsPlayer_->pauseRequested=[this]{pause_->toggle();};
     gbsPlayer_->trackRequested=[this](int track){gbsTrack_=track;if(emulator_){const bool paused=pause_->isChecked();pause_->setChecked(true);emulator_->selectGbsTrack(track);applyDebugOptions();pause_->setChecked(paused);}};
@@ -110,12 +147,16 @@ MainWindow::MainWindow() : screen_(new ScreenWidget(this)), timer_(new QTimer(th
     cameraSource_->message=[this](const QString&text){statusBar()->showMessage(text,15000);};cameraSource_->configure(settings_);
     controllers_=std::make_unique<Controllers>();
     fpsLabel_=new QLabel(tr("— FPS"));fpsLabel_->setObjectName("statusFps");
-    fpsLabel_->setToolTip(tr("Frames presented to the game view per second"));
+    fpsLabel_->setToolTip(tr("Frames emulated per second · frames drawn to the game view per second"));
     romPathLabel_=new RomPathLabel;statusBar()->addWidget(romPathLabel_,1);
     statusBar()->addPermanentWidget(fpsLabel_);fpsClock_.start();
     QSettings ui(QSettings::IniFormat,QSettings::UserScope,"SameBoyQt","SameBoyQt");
     showStatusBar_->setChecked(ui.value("view/statusBar",true).toBool());statusBar()->setVisible(showStatusBar_->isChecked());
+#ifdef Q_OS_MACOS
+    showMenuBar_->setChecked(true);menuBar()->setVisible(true);
+#else
     showMenuBar_->setChecked(ui.value("view/menuBar",true).toBool());menuBar()->setVisible(showMenuBar_->isChecked());
+#endif
     screen_->setMouseTracking(true);
     for(auto*child:screen_->findChildren<QWidget*>())child->setMouseTracking(true);
     statusBar()->showMessage(tr("Ready — arrows: D-pad | X: A | Z: B | Enter: Start | Backspace: Select"));
@@ -171,7 +212,8 @@ void MainWindow::updateInput(){
     // Hotkeys are accepted while paused, but never from inside Preferences or file dialogs.
     for(int i=0;i<2;++i)if(pressed&(1u<<i))switch(settings_.controllerHotkeys[i]){
         case 1:pause_->toggle();break;case 2:resetGame(false);break;case 3:saveState(1,false);break;
-        case 4:saveState(1,true);break;case 5:saveScreenshot(false);break;default:break;
+        case 4:saveState(1,true);break;case 5:saveScreenshot(false);break;case 6:mute_->toggle();break;
+        default:{const int action=settings_.controllerHotkeys[i];if(action>=7&&action<=15)saveState(action-5,false);else if(action>=16&&action<=24)saveState(action-14,true);break;}
     }
     if(!emulator_)return;
     EmulatorInput input;
@@ -183,6 +225,10 @@ void MainWindow::updateInput(){
         if(foreground&&settings_.allowMouse&&mouseMotion_.enabled&&emulator_->hasMotion()){
             input.motionX=mouseMotion_.tilt.x();input.motionY=mouseMotion_.tilt.y();if(mouseMotion_.leftButton)input.keys[0]|=GB_KEY_A_MASK;
         }
+    }
+    {// Cocoa shows these on the OSD as turbo/rewind/slow motion start (GBView flip, Document vblankWithType:).
+        uint8_t speed=0;for(const auto value:input.actions)speed|=value&(4|8|16|32|64);const uint8_t started=speed&~previousSpeedActions_;previousSpeedActions_=speed;
+        if(started&8)screen_->showMessage(tr("Rewinding…"));else if(started&4)screen_->showMessage(tr("Fast forwarding…"));else if(started&(16|32|64))screen_->showMessage(tr("Slow motion…"));
     }
     aiInput_.keys=aiInput_.active();input.lease=aiInput_;
     emulator_->setInput(input);
@@ -321,7 +367,8 @@ bool MainWindow::adoptSettings(const AppSettings&value,const PreparedRom*prepare
     }
     if(previous.cameraMode!=settings_.cameraMode||previous.cameraDevice!=settings_.cameraDevice||previous.cameraImage!=settings_.cameraImage||previous.cameraMirror!=settings_.cameraMirror)cameraSource_->configure(settings_);
     screen_->setSettings(settings_);
-    if(settings_.audioSampleRate!=previous.audioSampleRate){stopVideoRecording();stopRecording();if(audioBuffer_)audioBuffer_->clear();if(audio_)audio_->stop();audio_.reset();audioBuffer_.reset();configureAudio();if(emulator_)emulator_->reconfigureAudio(audioSampleRate_,audioBuffer_);}
+    if(settings_.cpuFrequency!=previous.cpuFrequency)stopVideoRecording();
+    if(settings_.audioSampleRate!=previous.audioSampleRate||settings_.audioOutputDevice!=previous.audioOutputDevice)rebuildAudio();
     if(audio_)audio_->setVolume(mute_->isChecked()?0:settings_.volume/100.0);if(emulator_)emulator_->updateSettings(settings_);clearInput();refreshMenus();return true;
 }
 
@@ -341,13 +388,16 @@ void MainWindow::clearConsole(){if(emulator_)consoleSequence_=emulator_->debugLo
 void MainWindow::submitDebugCommand(const QString&command){if(!emulator_||!settings_.developerMode)return;if(!emulator_->sendDebugCommand(command)){statusBar()->showMessage(tr("Debugger command queue is full or emulation is stopping."),5000);return;}pause_->setChecked(false);}
 void MainWindow::loadConsoleSymbols(){if(!emulator_)return;const auto path=QFileDialog::getOpenFileName(this,tr("Load Symbols"),QFileInfo(romSource_).path(),tr("Symbol files (*.sym);;All files (*)"));if(path.isEmpty())return;QFile symbols(path),registers(":/debug/registers.sym");QByteArray bytes;if(!readBoundedFile(symbols,bytes,4*1024*1024)){QMessageBox::warning(this,tr("Load Symbols"),tr("Cannot read symbol file."));return;}emulator_->loadDebugSymbols(romSource_,registers.open(QIODevice::ReadOnly)?registers.readAll():QByteArray(),bytes,path);}
 void MainWindow::pollConsole(){
-    if(!emulator_){if(console_)console_->setState(false,false);return;}
-    const auto batch=emulator_->debugLogs(consoleSequence_,500);if(!batch.entries.isEmpty()){
+    if(currentCpuFrequency_){const double hz=emulator_?emulator_->cpuFrequencyHz():0;currentCpuFrequency_->setText(hz>0?tr("Current CPU frequency: %1 MHz").arg(hz/1000000.0,0,'f',2):tr("Current CPU frequency: —"));}
+    if(!emulator_){if(console_){console_->setState(false,false);console_->setFrequency(0);}return;}
+    // Without a console or Developer Mode nothing consumes the logs, and the sequence stays put so a
+    // console opened later still shows them; skip scanning/copying the worker's log buffer every poll.
+    if(console_||settings_.developerMode){const auto batch=emulator_->debugLogs(consoleSequence_,500);if(!batch.entries.isEmpty()){
         if(!console_&&settings_.developerMode){showConsole();return;}if(console_){console_->append(batch.entries);consoleSequence_=batch.entries.last().sequence;}
-    }
+    }}
     if(console_&&console_->isVisible()){auto samples=emulator_->cpuLoadSamples(consoleCpuSequence_);if(!samples.isEmpty())consoleCpuSequence_=samples.last().sequence;console_->updateCpuLoad(samples,emulator_->paused()||emulator_->debuggerStopped());}
     const bool stopped=emulator_->debuggerStopped();breakDebuggerAction_->setEnabled(settings_.developerMode&&!stopped);pause_->setEnabled(!stopped);
-    if(console_)console_->setState(settings_.developerMode,stopped,{},-1,emulator_->paused());
+    if(console_){console_->setState(settings_.developerMode,stopped,{},-1,emulator_->paused());console_->setFrequency(emulator_->cpuFrequencyHz());}
     if(console_&&console_->isVisible()&&stopped&&!consoleSidePending_&&consoleSideClock_.elapsed()>=200){consoleSideClock_.restart();consoleSidePending_=true;auto data=std::make_shared<QString>();auto cpu=std::make_shared<double>(0);const auto generation=generation_;auto*worker=emulator_.get();
         worker->executeAsync(this,[worker,data,cpu](GB_gameboy_t*g){*data=worker->captureDebugOutput(g,"registers")+"\n"+worker->captureDebugOutput(g,"backtrace");*cpu=GB_debugger_get_second_cpu_usage(g);return QString();},[this,data,cpu,generation](QString error){if(generation!=generation_)return;consoleSidePending_=false;if(error.isEmpty()&&console_)console_->setState(settings_.developerMode,emulator_&&emulator_->debuggerStopped(),*data,*cpu);});
     }
@@ -360,25 +410,6 @@ void MainWindow::showPreferences(int tab)
     SettingsDialog dialog(settings_, this,tab);dialog.show();placeNewWindow(&dialog,this);
     if (dialog.exec() == QDialog::Accepted) {
         if(!applySettings(dialog.settings())){pause_->setChecked(wasPaused);refreshMenus();return;}
-        if(dialog.restartRequested())QTimer::singleShot(0,qApp,[]{
-            QVector<RestartWindow> session;for(auto*widget:qApp->topLevelWidgets())if(auto*game=dynamic_cast<MainWindow*>(widget);game&&game->isVisible())session.append({game->currentRomPath(),game->saveGeometry()});
-            QList<QPair<QPointer<MainWindow>,bool>> pending;
-            for(auto*widget:qApp->topLevelWidgets())if(auto*game=dynamic_cast<MainWindow*>(widget))pending.append({game,game->pause_->isChecked()});
-            for(const auto&entry:pending)if(entry.first&&!entry.first->prepareToClose()){
-                for(const auto&restore:pending)if(restore.first){
-                    restore.first->closing_=false;
-                    if(restore.first->emulator_)restore.first->emulator_->discardBatteryOnClose(false);
-                }
-                for(const auto&restore:pending)if(auto game=restore.first;game&&game->pause_->isChecked()!=restore.second){
-                    QSignalBlocker blocker(game->pause_);game->pause_->setChecked(restore.second);game->clearInput();
-                    if(game->emulator_)game->emulator_->setPaused(restore.second);
-                    if(game->audioBuffer_)game->audioBuffer_->clear();
-                    if(game->audio_){if(restore.second)game->audio_->suspend();else game->audio_->resume();}
-                }
-                return;
-            }
-            qApp->setProperty("restartSession",encodeRestartSession(session));qApp->setProperty("restartRequested",true);qApp->quit();
-        });
     }
     pause_->setChecked(wasPaused);
     refreshMenus();
@@ -386,7 +417,7 @@ void MainWindow::showPreferences(int tab)
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (!droppedRom(event->mimeData()).isEmpty()) {
+    if (!droppedRom(event->mimeData()).isEmpty()||(emulator_&&!gbsMode_&&!closing_&&!droppedState(event->mimeData()).isEmpty())) {
         event->setDropAction(Qt::CopyAction);
         event->accept();
     } else {
@@ -398,11 +429,16 @@ void MainWindow::dropEvent(QDropEvent *event)
 {
     const auto path = droppedRom(event->mimeData());
     if (path.isEmpty()) {
-        event->ignore();
+        const auto state = emulator_&&!gbsMode_&&!closing_?droppedState(event->mimeData()):QString();
+        if (state.isEmpty()) { event->ignore(); return; }
+        clearInput(); loadStateFile(state);
+        event->setDropAction(Qt::CopyAction); event->accept();
         return;
     }
     clearInput();
-    if (openRom(path)) {
+    // A drop targets this window explicitly: always (re)start the game here.
+    if (separateRomStorage(path,this) && openRom(path)) {
+        raise(); activateWindow();
         event->setDropAction(Qt::CopyAction);
         event->accept();
     } else {
@@ -415,8 +451,9 @@ void MainWindow::chooseRom()
     const bool wasPaused = pause_->isChecked();
     pause_->setChecked(true);
     const auto path = QFileDialog::getOpenFileName(this, tr("Open ROM"), {},
-        tr("Game Boy files (*.gb *.gbc *.gbs);;All files (*)"));
-    if (path.isEmpty() || !openRom(path)) pause_->setChecked(wasPaused);
+        tr("Game Boy files (*.gb *.gbc *.gbs *.isx);;All files (*)"));
+    if(!path.isEmpty())openRequestedRom(path,this);
+    pause_->setChecked(wasPaused);
 }
 
 void MainWindow::configureAudio()
@@ -425,7 +462,9 @@ void MainWindow::configureAudio()
     format.setSampleRate(settings_.audioSampleRate);
     format.setChannelCount(2);
     format.setSampleFormat(QAudioFormat::Int16);
-    const auto device = QMediaDevices::defaultAudioOutput();
+    auto device = QMediaDevices::defaultAudioOutput();
+    if(!settings_.audioOutputDevice.isEmpty())for(const auto&candidate:QMediaDevices::audioOutputs())if(candidate.id()==settings_.audioOutputDevice){device=candidate;break;}
+    activeAudioDevice_=device.id();
     if(!device.isNull()&&!device.isFormatSupported(format)){
         for(int rate:{48000,44100,96000}){format.setSampleRate(rate);if(device.isFormatSupported(format))break;}
     }
@@ -434,16 +473,80 @@ void MainWindow::configureAudio()
         statusBar()->showMessage(tr("Audio unavailable: no supported stereo PCM format. Running without audio."),15000);
         return;
     }
-    audio_ = std::make_unique<AudioOutput>(device, format);
+    activeAudioFormat_=format;
+    const auto generation=++audioGeneration_;QPointer<MainWindow> owner(this);
+    audio_ = std::make_unique<AudioOutput>(device, format,[owner,generation]{
+        if(owner)QMetaObject::invokeMethod(owner,[owner,generation]{if(owner&&owner->audioGeneration_==generation)owner->scheduleAudioRebuild(true);},Qt::QueuedConnection);
+    });
     audio_->setVolume(mute_->isChecked() ? 0 : settings_.volume / 100.0);
     audio_->setBufferSize(audioSampleRate_*4/25);
     audioBuffer_=std::make_shared<AudioBuffer>(audioSampleRate_);
     audio_->start(audioBuffer_.get());
     if (audio_->error()!=QAudio::NoError) {
         statusBar()->showMessage(tr("Could not start audio output. Running without audio."),15000);
-        audio_.reset();
+        ++audioGeneration_;audio_.reset();
         audioBuffer_.reset();
     }
+}
+
+void MainWindow::scheduleAudioRebuild(bool force)
+{
+    if(closing_||!emulator_||audioRebuildPending_||audioRebuilding_)return;
+    auto selected=QMediaDevices::defaultAudioOutput();
+    for(const auto&device:QMediaDevices::audioOutputs())if(!settings_.audioOutputDevice.isEmpty()&&device.id()==settings_.audioOutputDevice){selected=device;break;}
+    // Input-only changes and unrelated outputs must not tear down a healthy sink.
+    if(!force&&audio_&&selected.id()==activeAudioDevice_&&selected.isFormatSupported(activeAudioFormat_)&&audio_->state()!=QAudio::StoppedState&&audio_->error()==QAudio::NoError)return;
+    audioRebuildPending_=true;const auto cartridge=generation_,output=audioGeneration_;
+    QTimer::singleShot(100,this,[this,cartridge,output]{audioRebuildPending_=false;if(!closing_&&emulator_&&cartridge==generation_&&output==audioGeneration_)rebuildAudio();});
+}
+void MainWindow::rebuildAudio()
+{
+    if(closing_||audioRebuilding_)return;
+    QScopedValueRollback<bool> rebuilding(audioRebuilding_,true);
+    stopVideoRecording();stopRecording();
+    // Keep a GUI-owned buffer reference until both the core and backend have detached.
+    if(emulator_){const auto error=emulator_->reconfigureAudio(audioSampleRate_,{});if(!error.isEmpty()){statusBar()->showMessage(error,10000);return;}}
+    ++audioGeneration_;
+    if(audio_)audio_->stop();audio_.reset();audioBuffer_.reset();
+    configureAudio();
+    if(emulator_){const auto error=emulator_->reconfigureAudio(audioSampleRate_,audioBuffer_);if(!error.isEmpty())statusBar()->showMessage(error,10000);}
+}
+
+MainWindow* MainWindow::openRequestedRom(const QString&path,QWidget*owner)
+{
+    if(path.isEmpty())return nullptr;
+    const auto requested=romPathIdentity(path);
+    for(auto*widget:QApplication::topLevelWidgets())if(auto*window=dynamic_cast<MainWindow*>(widget);window&&window->emulator_&&romPathIdentity(window->romPath_)==requested){
+        QString source=path;
+        if(QFileInfo(path).isDir()){
+            QFile descriptor(QDir(path).filePath("rom.gbl"));QByteArray bytes;bool rewrite=false;
+            if(!readBoundedFile(descriptor,bytes,1024*1024,1)||!resolveCartridgeInstance(bytes,path,source,rewrite))source.clear();
+        }
+        QFile file(source);QByteArray bytes;
+        const auto hash=readBoundedFile(file,bytes,8*1024*1024,112)?QCryptographicHash::hash(bytes,QCryptographicHash::Sha256):QByteArray();
+        if(hash.isEmpty()||hash!=window->romHash_)if(!window->openRom(path))return nullptr;
+        if(window->isMinimized())window->showNormal();else window->show();
+        window->raise();window->activateWindow();return window;
+    }
+    if(!separateRomStorage(path,owner))return nullptr;
+    // The initial empty window receives the first file; further paths get their own window.
+    MainWindow*target=dynamic_cast<MainWindow*>(owner);
+    if(target&&target->emulator_)target=nullptr;
+    if(!target)for(auto*widget:QApplication::topLevelWidgets())if(auto*empty=dynamic_cast<MainWindow*>(widget);empty&&!empty->emulator_&&!empty->closing_){target=empty;break;}
+    const bool created=!target;
+    if(created){target=new MainWindow;target->setAttribute(Qt::WA_DeleteOnClose);}
+    if(!target->openRom(path)){if(created)delete target;return nullptr;}
+    target->show();if(created)placeNewWindow(target,owner);target->raise();target->activateWindow();return target;
+}
+
+bool MainWindow::separateRomStorage(const QString&path,QWidget*owner)
+{
+    // Distinct paths with the same basename must not share battery/state/cheat files.
+    const auto requested=romPathIdentity(path);
+    for(auto*widget:QApplication::topLevelWidgets())if(auto*other=dynamic_cast<MainWindow*>(widget);other&&other->emulator_&&romPathIdentity(other->romPath_)!=requested&&storageIdentity(batterySavePath(other->romPath_))==storageIdentity(batterySavePath(path))){
+        if(!isolateRomStorage(path)){QMessageBox::warning(owner,tr("Open ROM"),tr("Could not prepare separate save files for this ROM."));return false;}break;
+    }
+    return true;
 }
 
 bool MainWindow::focusStorageOwner(const QString &path)
@@ -487,25 +590,27 @@ bool MainWindow::prepareRom(const QString&path,const AppSettings&settings,Prepar
         QMessageBox::warning(this, tr("Open ROM"), tr("The ROM could not be read completely."));
         return false;
     }
+    if(QFileInfo(source).suffix().compare("isx",Qt::CaseInsensitive)==0){
+        // Cocoa Document.m loadROM uses GB_load_isx. The core reads it with fopen(), so convert a bounded
+        // copy at an ASCII temporary path in a scratch core and continue with the resulting ROM image.
+        QTemporaryFile copy(QDir(QDir::tempPath()).filePath("sameboy-qt-XXXXXX.isx"));
+        QByteArray converted;auto*probe=allocateGameBoy(GB_MODEL_CGB_E);
+        if(probe&&copy.open()&&copy.write(rom)==rom.size()&&copy.flush()){copy.close();
+            if(!GB_load_isx(probe,QFile::encodeName(QDir::toNativeSeparators(copy.fileName())).constData())){size_t size=0;
+                if(const auto*data=static_cast<const char*>(GB_get_direct_access(probe,GB_DIRECT_ACCESS_ROM,&size,nullptr));data&&size>=0x150)converted=QByteArray(data,qsizetype(size));}}
+        if(probe){GB_free(probe);GB_dealloc(probe);}
+        if(converted.isEmpty()){QMessageBox::warning(this,tr("Open ROM"),tr("Cannot read a valid Game Boy ROM or GBS file:\n%1").arg(path));return false;}
+        rom=std::move(converted);
+    }
     const bool isGbs=rom.startsWith(QByteArray("GBS\1",4));GB_gbs_info_t gbsInfo{};
     if(isGbs&&(uint8_t(rom[4])==0||uint8_t(rom[5])==0||uint8_t(rom[5])>uint8_t(rom[4]))){QMessageBox::warning(this,tr("GBS Player"),tr("Invalid GBS track table."));return false;}
     if(isGbs){auto*probe=allocateGameBoy(GB_MODEL_CGB_E);if(!probe){QMessageBox::critical(this,tr("GBS Player"),tr("Could not allocate a temporary emulator core."));return false;}const int result=GB_load_gbs_from_buffer(probe,reinterpret_cast<const uint8_t*>(rom.constData()),rom.size(),&gbsInfo);GB_free(probe);GB_dealloc(probe);
         if(result||!gbsInfo.track_count||gbsInfo.first_track>=gbsInfo.track_count){QMessageBox::warning(this,tr("GBS Player"),tr("Invalid GBS music file."));return false;}}
     else if(rom.size()<0x150){QMessageBox::warning(this,tr("Open"),tr("Invalid ROM or GBS file."));return false;}
-    const bool color = isGbs||(static_cast<unsigned char>(rom[0x143]) & 0x80) != 0;
-    const auto name = settings.bootName(color);
-    QFile boot(settings.bootFolder.isEmpty() ? ":/bootroms/" + name : QDir(settings.bootFolder).filePath(name));
-    if (!isGbs&&!boot.open(QIODevice::ReadOnly)) {
-        QMessageBox::critical(this, tr("Boot ROM"), tr("Cannot read boot ROM:\n%1").arg(boot.fileName()));
-        return false;
-    }
-    if (!isGbs&&(boot.size() < 256 || boot.size() > 2304)) {
-        QMessageBox::warning(this, tr("Boot ROM"), tr("Boot ROM must be between 256 and 2304 bytes.")); return false;
-    }
+    // Automatic hardware follows Cocoa's bestModelForROM (DMG/CGB/SGB family); GBS always uses CGB.
+    const int color = isGbs ? 1 : romModelFamily(rom);
     QByteArray bootBytes;
-    if(!isGbs&&!readBoundedFile(boot,bootBytes,2304,256)){
-        QMessageBox::warning(this,tr("Boot ROM"),tr("Cannot read boot ROM:\n%1").arg(boot.fileName()));return false;
-    }
+    if(!isGbs&&!readBootRom(this,settings,color,bootBytes))return false;
     prepared={path,source,rom,bootBytes,color,isGbs,gbsInfo};return true;
 }
 
@@ -520,9 +625,10 @@ bool MainWindow::openPreparedRom(const PreparedRom&prepared)
 {
     if((closing_&&!prepared.readyToReplace)||(prepared.readyToReplace&&(!closing_||prepared.generation!=generation_))||focusStorageOwner(prepared.path))return false;
     const auto&path=prepared.path;const auto&source=prepared.source;const auto&rom=prepared.rom;
-    const bool isGbs=prepared.isGbs,color=prepared.color;const auto&gbsInfo=prepared.gbsInfo;
-    if(!prepared.readyToReplace&&!prepareToClose())return false;
+    const bool isGbs=prepared.isGbs;const int color=prepared.color;const auto&gbsInfo=prepared.gbsInfo;
+    if(!prepared.readyToReplace&&!prepareToClose(true))return false;
     stop(true);
+    if(!isGbs)screen_->beginLoading();
     mouseMotion_={};
     const bool wasGbs=gbsMode_;if(isGbs&&!wasGbs)gameWindowSize_=size();
     gbsMode_=isGbs;views_->setCurrentWidget(isGbs?static_cast<QWidget*>(gbsPlayer_):screen_);
@@ -536,16 +642,21 @@ bool MainWindow::openPreparedRom(const PreparedRom&prepared)
     configureAudio();
     cameraSource_->configure(settings_);
     auto workerSettings=settings_;if(isGbs)workerSettings.hardware=2;
-    emulator_ = std::make_unique<Emulator>(rom, prepared.boot, savePath, color, workerSettings,audioSampleRate_,audioBuffer_,base+".sav",cameraInput_);
+    // Cocoa loads an ISX's "<name>.ram" before "<name>.sav"; the worker uses the legacy path when the .sav is absent.
+    const bool isx=!info.isDir()&&QFileInfo(source).suffix().compare("isx",Qt::CaseInsensitive)==0;
+    const QString legacySave=isx?QDir(info.absolutePath()).filePath(info.completeBaseName()+".ram"):base+".sav";
+    emulator_ = std::make_unique<Emulator>(rom, prepared.boot, savePath, color, workerSettings,audioSampleRate_,audioBuffer_,legacySave,cameraInput_);
     setWindowTitle(info.fileName() + " — SameBoy Qt[*]");
     setRomModified(false);discardRomOnClose_=false;
     statusBar()->clearMessage();
-    timer_->setInterval(16);
+    // Poll well inside one frame (~16.74 ms). At 16 ms, timer slack and presentation time stretched the
+    // period past a frame, so two frames often landed in one poll and only the newer one was drawn.
+    timer_->setInterval(8);emulatedAtClock_=0;displayedFrames_=0;fpsClock_.restart();
     emulator_->setPrinterConnected(printerAction_->isChecked());
     emulator_->setCaptureAudio(gbsMode_);
     emulator_->start();
     romColor_=color;romPath_ = info.absoluteFilePath();
-    romSource_ = QFileInfo(source).absoluteFilePath(); storageBase_ = base;
+    romSource_ = QFileInfo(source).absoluteFilePath();romHash_=QCryptographicHash::hash(rom,QCryptographicHash::Sha256); storageBase_ = base;
     coreCommand([base,enabled = cheatsEnabled_->isChecked()](GB_gameboy_t *gb) {
         const auto error = restoreCheats(gb,base); GB_set_cheats_enabled(gb,enabled); return error;
     });
@@ -557,10 +668,15 @@ bool MainWindow::openPreparedRom(const PreparedRom&prepared)
     while (recent.size() > 10) recent.removeLast();
     history.setValue("recentROMs", recent);
     refreshRecent(); refreshMenus();
+    if(!isGbs){// Cocoa reset: shows the version, ROM title and CRC32 on the OSD.
+        QString title;quint32 crc=0;emulator_->execute([&](GB_gameboy_t*g){char text[17]{};GB_get_rom_title(g,text);title=QString::fromLatin1(text).trimmed();crc=GB_get_rom_crc32(g);return QString();});
+        const auto version=QCoreApplication::applicationVersion();
+        screen_->showMessage(QString("%1%2\n%3\n%4").arg(QCoreApplication::applicationName(),version.isEmpty()?QString():" v"+version,title,QString::number(crc,16).rightJustified(8,'0').toUpper()));
+    }
     return true;
 }
 
-bool MainWindow::prepareToClose(){
+bool MainWindow::prepareToClose(bool releaseLink){
     if(closing_)return false;
     if(!emulator_)return true;
     bool discardRom=false;
@@ -573,6 +689,8 @@ bool MainWindow::prepareToClose(){
         discardRom=prompt.clickedButton()==discard;
     }
     closing_=true;
+    QPointer<MainWindow> partner=releaseLink?linkPartner_.data():nullptr;
+    if(partner)disconnectLink();
     const bool paused=pause_->isChecked();pause_->setChecked(true);emulator_->setPaused(true);
     for(;;){
         const auto error=emulator_->flushBattery();if(error.isEmpty()){discardRomOnClose_=discardRom;return true;}
@@ -581,11 +699,18 @@ bool MainWindow::prepareToClose(){
             QMessageBox::Retry|QMessageBox::Discard|QMessageBox::Cancel,QMessageBox::Cancel);
         if(choice==QMessageBox::Retry)continue;
         if(choice==QMessageBox::Discard){emulator_->discardBatteryOnClose();emulator_->takeError();discardRomOnClose_=discardRom;return true;}
-        closing_=false;pause_->setChecked(paused);emulator_->setPaused(paused);return false;
+        closing_=false;pause_->setChecked(paused);emulator_->setPaused(paused);
+        if(partner)connectTo(partner);
+        return false;
+    }
+}
+void MainWindow::flushAllBatteries(){
+    for(auto*widget:QApplication::topLevelWidgets())if(auto*window=dynamic_cast<MainWindow*>(widget);window&&window->emulator_&&!window->closing_){
+        const auto error=window->emulator_->flushBattery();if(!error.isEmpty())window->statusBar()->showMessage(error,15000);
     }
 }
 void MainWindow::closeEvent(QCloseEvent*event){
-    if(!prepareToClose()){event->ignore();return;}
+    if(!prepareToClose(true)){event->ignore();return;}
     stop();QMainWindow::closeEvent(event);
 }
 
@@ -608,6 +733,7 @@ void MainWindow::stop(bool keepTools)
     }
     if(printerWindow_)printerWindow_->setPrinting(false);
     if(audioBuffer_)audioBuffer_->clear();
+    ++audioGeneration_;
     if (audio_) audio_->stop();
     audio_.reset();
     audioBuffer_.reset();
@@ -626,6 +752,12 @@ void MainWindow::pollPrinterOutput(){
 void MainWindow::poll()
 {
     if(closing_)return;
+    // Cocoa (Document.m mouseHidingEnabled, GBView mouseEntered:) hides the pointer over the game only in
+    // full screen while running, with no inspector open and no mouse-driven motion control.
+    const bool tools=(console_&&console_->isVisible())||(memoryDialog_&&memoryDialog_->isVisible())||(vramDialog_&&vramDialog_->isVisible())||
+        (printerWindow_&&printerWindow_->isVisible())||(cheatsDialog_&&cheatsDialog_->isVisible())||(cheatSearchDialog_&&cheatSearchDialog_->isVisible());
+    const bool hidePointer=isFullScreen()&&emulator_&&!gbsMode_&&!pause_->isChecked()&&!tools&&!(settings_.allowMouse&&emulator_->hasMotion());
+    if(hidePointer!=(screen_->cursor().shape()==Qt::BlankCursor)){if(hidePointer)screen_->setCursor(Qt::BlankCursor);else screen_->unsetCursor();}
     updateInput();pollConsole();pollVideoRecording();
     cameraSource_->poll(emulator_&&emulator_->hasCameraCartridge()&&!pause_->isChecked());
     if (!emulator_) {fpsLabel_->setText(tr("— FPS"));displayedFrames_=0;fpsClock_.restart();return;}
@@ -634,14 +766,18 @@ void MainWindow::poll()
     auto frame = emulator_->takeFrame(&odd,&sgb,&previous);
     if (!frame.isNull()) {screen_->setFrame(std::move(frame),odd,sgb,std::move(previous));++displayedFrames_;if(vramDialog_&&vramDialog_->isVisible())vramDialog_->requestRefresh();}
     if(fpsClock_.elapsed()>=1000){
-        fpsLabel_->setText(tr("%1 FPS").arg(displayedFrames_*1000.0/fpsClock_.elapsed(),0,'f',1));
-        displayedFrames_=0;fpsClock_.restart();
+        // Emulated frames come from the core; drawn frames are those this window actually presented.
+        const auto emulated=emulator_->emulatedFrames();const double seconds=fpsClock_.elapsed()/1000.0;
+        fpsLabel_->setText(tr("%1 FPS · %2 drawn").arg((emulated-emulatedAtClock_)/seconds,0,'f',1).arg(displayedFrames_/seconds,0,'f',1));
+        emulatedAtClock_=emulated;displayedFrames_=0;fpsClock_.restart();
     }
     emulator_->setCaptureAudio(gbsMode_||bool(recording_));
     const auto samples = emulator_->takeAudio();
     if(gbsMode_){gbsPlayer_->setSamples(samples);gbsPlayer_->setPaused(pause_->isChecked());}
     if (recording_ && !samples.isEmpty() && !pause_->isChecked()) {
-        if (recordedBytes_ > 0xffffffffu - 44u - samples.size() || recording_->write(samples) != samples.size()) {
+        QByteArray pcm=samples;
+        if(recordingFormat_==1)for(qsizetype i=0;i+1<pcm.size();i+=2)std::swap(pcm[i],pcm[i+1]); // AIFF stores big-endian samples.
+        if (recordedBytes_ > 0xffffffffu - 54u - pcm.size() || recording_->write(pcm) != pcm.size()) {
             statusBar()->showMessage(tr("Audio recording stopped: file limit or write error."), 10000);
             stopRecording();
         } else recordedBytes_ += samples.size();

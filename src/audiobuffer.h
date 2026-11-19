@@ -3,6 +3,7 @@
 #include <QMutex>
 #include <QByteArray>
 #include <QWaitCondition>
+#include <atomic>
 
 // QAudioSink reads this directly on its audio thread; GUI painting cannot starve it.
 class AudioBuffer final:public QIODevice {
@@ -19,6 +20,7 @@ protected:
     qint64 readData(char *data,qint64 size) override;
     qint64 writeData(const char *,qint64) override{return -1;}
 private:
+    std::atomic<bool> notificationPending_{false};
     const unsigned sampleRate_;
     mutable QMutex mutex_;
     QByteArray buffer_;

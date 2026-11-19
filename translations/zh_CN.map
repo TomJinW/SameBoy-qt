@@ -1,6 +1,5 @@
  if old = %1|（原值为 %1 时）
  — %1 disconnected| — %1 已断开
-%1 FPS|%1 FPS
 %1 fps|%1 FPS
 %1 objects intersect the screen|屏幕内有 %1 个精灵
 %1 results|%1 个结果
@@ -156,7 +155,6 @@ Disconnected controller|已断开的手柄
 Display border:|显示边框：
 Distinct disabled LCD color|为关闭的 LCD 使用独立颜色
 Double-click a byte to edit · %1 bytes · Bank $%2|双击字节以编辑 · %1 字节 · 银行 $%2
-@Drop a Game Boy / Game Boy Color ROM here|将 Game Boy / Game Boy Color ROM 拖到此处\n或按 Ctrl+O 打开
 Duplicate binding|按键重复
 Edit Cheat|编辑金手指
 Emulated Model|模拟机型
@@ -179,14 +177,14 @@ For rumble-enabled Game Paks|支持振动的卡带
 Force integer scale|强制整数倍缩放
 @Four independent players|Super Game Boy 游戏支持四名独立玩家。普通 GB/GBC 游戏使用玩家 1。点击按键进行映射；Delete 清除，Escape 取消。Ctrl+P 暂停。
 Frame blending:|混帧：
-Frames presented to the game view per second|每秒在游戏画面中呈现的帧数
+Frames emulated per second · frames drawn to the game view per second|每秒模拟的帧数 · 每秒实际画到游戏画面的帧数
 GBS Player|GBS 播放器
 GPU rendering is unavailable. Displaying an unfiltered image.|GPU 渲染不可用，正在显示未应用滤镜的画面。
 Game Boy Advance revision:|Game Boy Advance 硬件版本：
 Game Boy Color revision:|Game Boy Color 硬件版本：
 Game Boy Printer|Game Boy 打印机
 Game Boy ROM (*.gb *.gbc)|Game Boy ROM (*.gb *.gbc)
-Game Boy files (*.gb *.gbc *.gbs);;All files (*)|Game Boy 文件 (*.gb *.gbc *.gbs);;所有文件 (*)
+Game Boy files (*.gb *.gbc *.gbs *.isx);;All files (*)|Game Boy 文件 (*.gb *.gbc *.gbs *.isx);;所有文件 (*)
 Game Boy revision:|Game Boy 硬件版本：
 Game Link Cable && Infrared|联机线 && 红外通信
 General|通用
@@ -237,7 +235,7 @@ Joy-Con (R)|Joy-Con（右）
 Keep aspect ratio|保持宽高比
 Keyboard|键盘
 LCD display|LCD 显示器
-Language changes take effect after restarting the application.|语言更改会在下次启动应用时生效。
+Language changes take effect the next time you launch the app.|语言更改会在下次启动应用时生效。
 Language:|语言：
 Left trigger|左扳机
 Lime (Game Boy)|青柠绿（Game Boy）
@@ -280,7 +278,6 @@ Objects|精灵
 Olive (Pocket)|橄榄绿（Pocket）
 OmniScale (Any factor)|OmniScale（任意倍数）
 OmniScale Legacy|OmniScale 旧版
-On-screen display (frame rate)|屏幕叠加信息（帧率）
 Only for Super Game Boy|仅 Super Game Boy
 Only if old value was:|仅当原值为：
 Open|打开
@@ -300,7 +297,6 @@ Palettes|调色板
 Partner|配对手柄
 Pause|暂停
 Pause / resume|暂停 / 继续
-@Pause: Ctrl+P|暂停：Ctrl+P\n偏好设置：Ctrl+,\n保存截图：Ctrl+S
 Pick Automatically|自动选择
 Pixelated|像素化
 Play|播放
@@ -471,9 +467,6 @@ Right paddle 2|右背键 2
 Left paddle 2|左背键 2
 Touchpad|触摸板
 SameBoy Qt|SameBoy Qt
-Restart Application|重启应用
-Restart saves settings and reopens the current ROM windows.|重启会保存设置，并重新打开当前的 ROM 窗口。
-Could not restart the application. Please launch it again manually.|无法重启应用，请手动重新启动。
 Control and Meta are reserved for application shortcuts.|Control 和 Meta 已保留给应用快捷键。
 Scaling Filter|缩放滤镜
 Colors|颜色
@@ -519,6 +512,9 @@ View core commit on GitHub|在 GitHub 查看此核心 commit
 Theme:|主题：
 Light|浅色
 Dark|深色
+Dark theme is temporarily unavailable on Windows 10.|Windows 10 上暂时无法使用深色主题。
+Dark theme is unavailable on Windows 10. The app uses Light even when following system appearance.|Windows 10 暂不支持深色主题；即使选择“跟随系统”，应用也会使用浅色主题。
+Windows 10 uses the light theme, including when following system appearance.|Windows 10 上暂时使用浅色主题，包括选择“跟随系统”时。
 CPU Load|CPU 负载
 Start Video Recording…|开始录屏…
 Start Video Recording|开始录屏
@@ -548,3 +544,46 @@ Could not save preferences to %1.|无法将偏好设置保存到 %1。
 Could not allocate a temporary emulator core.|无法分配临时模拟器核心。
 Could not allocate the emulator core.|无法分配模拟器核心。
 Emulator core initialization failed.|模拟器核心初始化失败。
+Settings|设置
+Settings…|设置…
+4 MHz|4 MHz
+8 MHz|8 MHz
+Automatic|自动
+CPU Frequency|CPU 频率
+Save changes to the ROM before closing it?|关闭前是否保存对 ROM 的修改？
+The cartridge ROM is not available.|卡带 ROM 不可用。
+Unsaved ROM Modifications|未保存的 ROM 修改
+Screenshot scale:|截图缩放倍率：
+Output device:|输出设备：
+Disconnected device (using system default)|设备已断开（暂用系统默认设备）
+Force CPU Frequency|强制 CPU 频率
+CPU Load @ %1 MHz|CPU 负载 @ %1 MHz
+Current CPU frequency: %1 MHz|当前 CPU 频率：%1 MHz
+Current CPU frequency: —|当前 CPU 频率：—
+Could not prepare separate save files for this ROM.|无法为此 ROM 准备独立存档文件。
+@Pause: %1|暂停：%1\n%2：%3\n保存截图：%4
+
+Drop a Game Boy / Game Boy Color ROM here|将 Game Boy / Game Boy Color ROM 拖到此处
+Open ROM…|打开 ROM…
+Open: %1|打开：%1
+
+Close ROM|关闭 ROM
+Could not start the debug interface: %1|无法启动调试接口：%1
+%1 FPS · %2 drawn|%1 FPS · 显示 %2
+Invalid value or expression.|无效的数值或表达式。
+State saved|已保存即时存档
+State loaded|已读取即时存档
+Screenshot saved|已保存截图
+Screenshot copied|已复制截图
+Audio recording started|已开始录音
+Audio recording ended|录音已结束
+Rewinding…|倒带中…
+Fast forwarding…|快进中…
+Slow motion…|慢动作…
+On-screen display (frame rate and events)|屏幕显示（帧率和事件提示）
+AIFF audio (*.aiff *.aif)|AIFF 音频 (*.aiff *.aif)
+Raw PCM, 16-bit stereo little-endian (*.raw *.pcm)|原始 PCM，16 位立体声小端序 (*.raw *.pcm)
+VGM register log (*.vgm)|VGM 寄存器记录 (*.vgm)
+Mute / unmute|静音 / 取消静音
+Quick save (slot %1)|快速存档（位置 %1）
+Quick load (slot %1)|快速读档（位置 %1）

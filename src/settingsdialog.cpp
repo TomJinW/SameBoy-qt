@@ -14,6 +14,9 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QMediaDevices>
+#include <QAudioDevice>
+#include <QSignalBlocker>
 #include <QFontDialog>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -60,14 +63,18 @@ private:
 SettingsDialog::SettingsDialog(const AppSettings &settings, QWidget *parent,int initialTab)
     : QDialog(parent), settings_(settings)
 {
+#ifdef Q_OS_MACOS
+    setWindowTitle(tr("Settings"));
+#else
     setWindowTitle(tr("Preferences"));
+#endif
     resize(680, 680);
     setMinimumSize(560, 320);
     auto *layout = new QVBoxLayout(this);
     auto *tabs = new QTabWidget;
     layout->addWidget(tabs);
     connect(tabs, &QTabWidget::currentChanged, this, [this](int index) {
-        resize(index==3?1060:680, index == 2 ? 340 : index == 3 ? 820 : index==4?480:680);
+        resize(index==3?1060:680, index == 2 ? 390 : index == 3 ? 820 : index==4?480:680);
     });
     auto page = [&](const QString &title) {
         auto *scroll = new QScrollArea;
@@ -169,7 +176,7 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, QWidget *parent,int 
     combo(video, tr("Display border:"), settings_.border, {{tr("Only for Super Game Boy"),GB_BORDER_SGB},{tr("Never"),GB_BORDER_NEVER},{tr("Always"),GB_BORDER_ALWAYS}});
     check(video, tr("Keep aspect ratio"), settings_.aspect);
     check(video, tr("Force integer scale"), settings_.integerScale);
-    check(video, tr("On-screen display (frame rate)"), settings_.osd);
+    check(video, tr("On-screen display (frame rate and events)"), settings_.osd);
     auto fontLabel = [](const QFont &font) { return QString("%1, %2 pt").arg(font.family()).arg(font.pointSizeF()); };
     auto *font = new QPushButton(fontLabel(settings_.monospace)); video->addRow(tr("Monospace font:"), font);
     connect(font, &QPushButton::clicked, this, [this, font, fontLabel] {
@@ -179,6 +186,17 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, QWidget *parent,int 
     note(video, tr("Accurate blending follows the LCD's alternating frame/scanline pattern. Super Game Boy uses simple blending."));
 
     auto *audio = page(tr("Audio"));
+    auto*outputDevice=new QComboBox;outputDevice->setObjectName("audioOutputDevice");audio->addRow(tr("Output device:"),outputDevice);
+    auto*mediaDevices=new QMediaDevices(this);
+    auto refreshOutputs=[this,outputDevice]{
+        QSignalBlocker block(outputDevice);outputDevice->clear();outputDevice->addItem(tr("Follow system"),QByteArray());
+        for(const auto&device:QMediaDevices::audioOutputs())outputDevice->addItem(device.description(),device.id());
+        int index=outputDevice->findData(settings_.audioOutputDevice);
+        if(index<0){outputDevice->addItem(tr("Disconnected device (using system default)"),settings_.audioOutputDevice);index=outputDevice->count()-1;}
+        outputDevice->setCurrentIndex(index);
+    };
+    refreshOutputs();connect(mediaDevices,&QMediaDevices::audioOutputsChanged,this,refreshOutputs);
+    connect(outputDevice,&QComboBox::currentIndexChanged,this,[this,outputDevice]{settings_.audioOutputDevice=outputDevice->currentData().toByteArray();});
     combo(audio,tr("Sample rate:"),settings_.audioSampleRate,{{"44.1 kHz",44100},{"48 kHz",48000},{"96 kHz",96000}})->setObjectName("audioSampleRate");
     slider(audio, tr("Volume:"), settings_.volume, 0, 100, "%");
     combo(audio, tr("High-pass filter:"), settings_.highpass, {{tr("Disabled (keep DC offset)"),0},{tr("Accurate (hardware)"),1},{tr("Remove DC offset"),2}});
@@ -248,7 +266,13 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, QWidget *parent,int 
     slider(motionControls,tr("Motion sensitivity:"),settings_.motionSensitivity,25,200,"%");
     slider(motionControls,tr("Stick deadzone:"),settings_.deadzone,5,80,"%");
     for(int i=0;i<2;++i)combo(motionControls,tr("Controller Hotkey %1 action:").arg(i+1),settings_.controllerHotkeys[i],
-        {{tr("None"),0},{tr("Pause / resume"),1},{tr("Reset"),2},{tr("Quick save (slot 1)"),3},{tr("Quick load (slot 1)"),4},{tr("Screenshot"),5}});
+        // Cocoa's hotkey choices (Preferences.xib): pause, reset, mute, save/load slots 1-10. Stored ids 0-5 are unchanged.
+        {{tr("None"),0},{tr("Pause / resume"),1},{tr("Reset"),2},{tr("Mute / unmute"),6},
+         {tr("Quick save (slot 1)"),3},{tr("Quick save (slot %1)").arg(2),7},{tr("Quick save (slot %1)").arg(3),8},{tr("Quick save (slot %1)").arg(4),9},{tr("Quick save (slot %1)").arg(5),10},
+         {tr("Quick save (slot %1)").arg(6),11},{tr("Quick save (slot %1)").arg(7),12},{tr("Quick save (slot %1)").arg(8),13},{tr("Quick save (slot %1)").arg(9),14},{tr("Quick save (slot %1)").arg(10),15},
+         {tr("Quick load (slot 1)"),4},{tr("Quick load (slot %1)").arg(2),16},{tr("Quick load (slot %1)").arg(3),17},{tr("Quick load (slot %1)").arg(4),18},{tr("Quick load (slot %1)").arg(5),19},
+         {tr("Quick load (slot %1)").arg(6),20},{tr("Quick load (slot %1)").arg(7),21},{tr("Quick load (slot %1)").arg(8),22},{tr("Quick load (slot %1)").arg(9),23},{tr("Quick load (slot %1)").arg(10),24},
+         {tr("Screenshot"),5}});
     combo(motionControls,tr("Enable rumble:"),settings_.rumbleMode,{{tr("Disabled"),0},{tr("For rumble-enabled Game Paks"),1},{tr("For all games"),2}});
     slider(motionControls,tr("Rumble strength:"),settings_.rumbleStrength,0,100,"%");
     check(motionControls,tr("Analog turbo and slow-motion controls (triggers)"),settings_.analogControls);
@@ -272,10 +296,23 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, QWidget *parent,int 
     check(camera,tr("Mirror horizontally"),settings_.cameraMirror);
     auto enableCamera=[this,cameraDeviceBox,imageRow]{cameraDeviceBox->setEnabled(settings_.cameraMode==1);imageRow->setEnabled(settings_.cameraMode==2);};enableCamera();connect(source,&QComboBox::currentIndexChanged,this,enableCamera);
     note(camera,tr("The camera starts only when a Game Boy Camera game requests a picture. Pausing or closing the game stops capture. Images are cropped to the center and converted to grayscale; the emulated camera handles exposure and dithering. If access fails, the game receives a blank image instead of waiting indefinitely."));
-    auto*general=page(tr("General"));auto*language=new QComboBox;language->setObjectName("interfaceLanguage");language->addItem(tr("Follow system"),"system");language->addItem(QString::fromUtf8("简体中文"),"zh_CN");language->addItem("English","en");language->setCurrentIndex(language->findData(settings_.language));
-    connect(language,&QComboBox::currentIndexChanged,this,[this,language]{settings_.language=language->currentData().toString();});auto*languageRow=new QWidget;auto*languageLayout=new QHBoxLayout(languageRow);languageLayout->setContentsMargins(0,0,0,0);languageLayout->addWidget(language,1);auto*restart=new QPushButton(tr("Restart Application"));restart->setObjectName("restartApplication");languageLayout->addWidget(restart);general->addRow(tr("Language:"),languageRow);note(general,tr("Language changes take effect after restarting the application."));note(general,tr("Restart saves settings and reopens the current ROM windows."));
+    auto*general=page(tr("General"));
+    combo(general,tr("Screenshot scale:"),settings_.screenshotScale,{{"1×",1},{"2×",2},{"4×",4},{"8×",8},{"16×",16}})->setObjectName("screenshotScale");
+    auto*language=new QComboBox;language->setObjectName("interfaceLanguage");language->addItem("English","en");language->addItem(QString::fromUtf8("简体中文"),"zh_CN");language->setCurrentIndex(language->findData(settings_.language));
+    connect(language,&QComboBox::currentIndexChanged,this,[this,language]{settings_.language=language->currentData().toString();settings_.languageChosen=true;});auto*languageRow=new QWidget;auto*languageLayout=new QHBoxLayout(languageRow);languageLayout->setContentsMargins(0,0,0,0);languageLayout->addWidget(language,1);
+    general->addRow(tr("Language:"),languageRow);note(general,tr("Language changes take effect the next time you launch the app."));
     auto*theme=combo(general,tr("Theme:"),settings_.theme,{{tr("Follow system"),0},{tr("Light"),1},{tr("Dark"),2}});theme->setObjectName("interfaceTheme");
-    const int originalTheme=settings.theme;
+    if(isWindows10Platform()){
+        const int darkIndex=theme->findData(2);
+        if(auto*model=qobject_cast<QStandardItemModel*>(theme->model());model&&darkIndex>=0)if(auto*item=model->item(darkIndex)){
+            item->setEnabled(false);
+            item->setToolTip(tr("Dark theme is temporarily unavailable on Windows 10."));
+        }
+        theme->setToolTip(tr("Windows 10 uses the light theme, including when following system appearance."));
+        note(general,tr("Dark theme is unavailable on Windows 10. The app uses Light even when following system appearance."));
+        if(settings_.theme!=1){settings_.theme=1;theme->setCurrentIndex(theme->findData(1));}
+    }
+    const int originalTheme=settings_.theme;
     connect(theme,&QComboBox::currentIndexChanged,this,[this]{applyInterfaceTheme(settings_.theme);});
     connect(this,&QDialog::rejected,this,[originalTheme]{applyInterfaceTheme(originalTheme);});
     tabs->setCurrentIndex(initialTab);
@@ -296,5 +333,4 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, QWidget *parent,int 
         }
         accept();
     });
-    connect(restart,&QPushButton::clicked,this,[this,buttons]{restartRequested_=true;buttons->button(QDialogButtonBox::Ok)->click();if(result()!=QDialog::Accepted)restartRequested_=false;});
 }

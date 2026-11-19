@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <QDeadlineTimer>
 #include <cmath>
+#include <QMetaObject>
 
 
 AudioBuffer::AudioBuffer(unsigned rate):sampleRate_(rate){open(QIODevice::ReadOnly|QIODevice::Unbuffered);}
@@ -11,7 +12,12 @@ void AudioBuffer::setLatencyBudget(unsigned milliseconds){QMutexLocker lock(&mut
 void AudioBuffer::append(const QByteArray &pcm){
     {QMutexLocker lock(&mutex_);buffer_.append(pcm);const qsizetype limit=qMax<qsizetype>(65536,qint64(sampleRate_)*4*(latencyMs_+40)/1000);
         if(buffer_.size()>limit){const auto removed=(buffer_.size()-limit+3)/4*4;buffer_.remove(0,removed);statistics_.droppedFrames+=removed/4;}available_.wakeAll();}
-    emit readyRead();
+    // Emit on the source's own thread. A cross-thread readyRead queues Qt's
+    // raw stream callback on this device; that callback can outlive a removed
+    // USB device's stream. Queue our lifetime-bound notification instead.
+    if(!notificationPending_.exchange(true))QMetaObject::invokeMethod(this,[this]{
+        notificationPending_.store(false);emit readyRead();
+    },Qt::QueuedConnection);
 }
 void AudioBuffer::clear(){QMutexLocker lock(&mutex_);buffer_.clear();++epoch_;available_.wakeAll();}
 // Report only real PCM: a pull backend may refill until this becomes zero.

@@ -8,6 +8,7 @@
 class VideoRecorder final:public QObject{
 public:
  explicit VideoRecorder(QObject*parent=nullptr);~VideoRecorder();
+ static QString availabilityError();
  QString start(const QString&path,QSize nativeSize,double fps,unsigned sampleRate,int scale,bool filters);
  bool canAccept()const;
  bool append(VideoFramePacket);

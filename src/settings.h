@@ -8,20 +8,36 @@
 #include "palettes.h"
 
 inline constexpr int KeyboardActionCount=15;
+// Cocoa Document.m bestModelForROM: CGB features -> CGB; SGB features -> SGB; Nintendo-licensed
+// (likely to have CGB boot ROM palettes) -> CGB; otherwise DMG. Returns 0 DMG, 1 CGB, 2 SGB.
+inline int romModelFamily(const QByteArray&rom){
+    if(rom.size()<0x150)return 1;
+    const auto at=[&](int offset){return uint8_t(rom[offset]);};
+    if(at(0x143)&0x80)return 1;
+    if(at(0x146)==3)return 2;
+    if(at(0x14b)==1)return 1;
+    if(at(0x14b)==0x33&&at(0x144)=='0'&&at(0x145)=='1')return 1;
+    return 0;
+}
 struct AppSettings {
     QString bootFolder;
-    QString language="system";
+    QString language="en";
+    bool languageChosen=false;
     int theme=0; // 0 system, 1 light, 2 dark
-    bool developerMode=false;
+    bool developerMode=false; // Session only; never persisted.
     int audioSampleRate=96000;
+    QByteArray audioOutputDevice; // Empty follows the system default.
+    int screenshotScale=1;
     int hardware = 0, dmgModel = GB_MODEL_DMG_B, cgbModel = GB_MODEL_CGB_E;
     int sgbModel = GB_MODEL_SGB2, agbModel = GB_MODEL_AGB_A;
     int rewindSeconds = 120, rtc = GB_RTC_MODE_SYNC_TO_HOST;
-    int cpuFrequency = 0; // 0 = automatic, 1 = 4 MHz, 2 = 8 MHz
+    int cpuFrequency = 0; // Session only: 0 = automatic, 1 = 4 MHz, 2 = 8 MHz
     bool capTurbo = false;
     int turboPercent = 200;
-    int scaling = 0, blending = 0, colorCorrection = GB_COLOR_CORRECTION_MODERN_ACCURATE;
-    int temperature = 0, palette = 1, border = GB_BORDER_NEVER;
+    // Output defaults follow Cocoa's registerDefaults (GBApp.m): accurate blending, modern balanced
+    // colour correction, an unregistered GBBorderMode (0 = SGB borders) and the accurate highpass.
+    int scaling = 0, blending = 2, colorCorrection = GB_COLOR_CORRECTION_MODERN_BALANCED;
+    int temperature = 0, palette = 1, border = GB_BORDER_SGB;
     QVector<UserPalette> palettes = defaultPalettes();
     bool filterScreenshots = false, aspect = true, integerScale = true, osd = false;
     QFont monospace{"Consolas", 12};
@@ -29,7 +45,7 @@ struct AppSettings {
     QByteArray cameraDevice;
     QString cameraImage;
     bool cameraMirror=false;
-    int volume = 100, highpass = GB_HIGHPASS_OFF, interference = 0;
+    int volume = 100, highpass = GB_HIGHPASS_ACCURATE, interference = 0;
     std::array<int, KeyboardActionCount> keys{Qt::Key_Right, Qt::Key_Left, Qt::Key_Up, Qt::Key_Down,
         Qt::Key_X, Qt::Key_Z, Qt::Key_Backspace, Qt::Key_Return,
         Qt::Key_A, Qt::Key_S, Qt::Key_Tab, Qt::Key_R, Qt::Key_Shift};
@@ -51,8 +67,9 @@ struct AppSettings {
     std::array<int,2> controllerHotkeys{0,0};
     std::array<int,KeyboardActionCount> &playerKeys(int player) { return player ? extraKeys[player-1] : keys; }
     const std::array<int,KeyboardActionCount> &playerKeys(int player) const { return player ? extraKeys[player-1] : keys; }
-    GB_model_t model(bool color) const;
-    QString bootName(bool color) const;
+    // family: the ROM's automatic choice (romModelFamily), 0 = DMG, 1 = CGB, 2 = SGB.
+    GB_model_t model(int family) const;
+    QString bootName(int family) const;
     static AppSettings load();
     QString save() const;
 };

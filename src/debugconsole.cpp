@@ -26,12 +26,14 @@ protected:void keyPressEvent(QKeyEvent*event)override{
 };
 }
 class CpuLoadGraph final:public QWidget{
- QVector<double>samples_;double usage_=0;quint64 count_=0;
-public:CpuLoadGraph(){setMinimumHeight(100);setObjectName("debugCpuLoad");}
+ QVector<double>samples_;double usage_=0;quint64 count_=0;QString title_=tr("CPU Load");
+public:
+ void setFrequency(double hz){title_=hz>0?tr("CPU Load @ %1 MHz").arg(hz/1000000.0,0,'f',2):tr("CPU Load");setProperty("frequencyHz",hz);update();}
+ CpuLoadGraph(){setMinimumHeight(100);setObjectName("debugCpuLoad");}
  void clear(){samples_.clear();usage_=0;count_=0;setProperty("sampleCount",0);setProperty("secondUsage",0);update();}
  void add(double sample,double second){samples_.append(std::clamp(sample,0.0,1.0));if(samples_.size()>256)samples_.removeFirst();usage_=std::clamp(second,0.0,1.0);setProperty("sampleCount",double(++count_));setProperty("secondUsage",usage_);update();}
 protected:void paintEvent(QPaintEvent*)override{
-  QPainter p(this);p.fillRect(rect(),palette().brush(QPalette::Window));auto bold=font();bold.setBold(true);p.setFont(bold);p.setPen(palette().color(QPalette::WindowText));p.drawText(QRect(6,2,width()-12,20),Qt::AlignLeft|Qt::AlignVCenter,tr("CPU Load"));
+  QPainter p(this);p.fillRect(rect(),palette().brush(QPalette::Window));auto bold=font();bold.setBold(true);p.setFont(bold);p.setPen(palette().color(QPalette::WindowText));p.drawText(QRect(6,2,width()-12,20),Qt::AlignLeft|Qt::AlignVCenter,title_);
   const QRectF plot(0,24,width(),qMax(1,height()-48));const QColor green(48,190,80),red(240,65,55);p.setRenderHint(QPainter::Antialiasing);QPointF previous(0,plot.bottom());
   for(int i=0;i<256;++i){const int index=i-(256-samples_.size());const double value=index<0?0:samples_[index];QPointF point(plot.left()+plot.width()*i/255,plot.bottom()-value*plot.height());if(i){auto color=value>=1.0?red:green;QPainterPath area;area.moveTo(previous.x(),plot.bottom());area.lineTo(previous);area.lineTo(point);area.lineTo(point.x(),plot.bottom());area.closeSubpath();auto fill=color;fill.setAlpha(85);p.fillPath(area,fill);p.setPen(QPen(color,1));p.drawLine(previous,point);}previous=point;}
   p.setPen(palette().color(QPalette::WindowText));p.drawText(QRect(6,height()-24,width()-12,22),Qt::AlignLeft|Qt::AlignVCenter,QString::number(usage_*100,'f',2)+"%");
@@ -52,4 +54,5 @@ void DebugConsole::clearOutput(){output_->clear();side_->clear();}
 void DebugConsole::setState(bool enabled,bool stopped,const QString&side,double cpu,bool paused){input_->setEnabled(enabled);interrupt_->setEnabled(enabled&&!stopped);for(auto*button:stoppedButtons_)button->setEnabled(enabled&&stopped);status_->setText(!enabled?tr("Enable Developer Mode and open a ROM to send commands."):stopped?tr("Debugger stopped"):paused?tr("Paused"):tr("Running — Ctrl+C breaks execution"));if(!side.isNull()&&side_->toPlainText()!=side)side_->setPlainText(side);(void)cpu;}
 void DebugConsole::updateCpuLoad(const QVector<CpuLoadSample>&samples,bool idle){for(const auto&sample:samples)cpu_->add(sample.frame,sample.second);if(idle&&samples.isEmpty())cpu_->add(0,0);}
 
+void DebugConsole::setFrequency(double hz){cpu_->setFrequency(hz);}
 void DebugConsole::resetCpuLoad(){cpu_->clear();}

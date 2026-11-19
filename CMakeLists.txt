@@ -16,7 +16,15 @@ endif()
 if(MSVC AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "SameBoy requires GNU C extensions. Use ClangCL for Windows ARM64, or GCC/Clang on Linux.")
 endif()
-find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Multimedia GuiPrivate PrintSupport Network)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Multimedia Gui PrintSupport Network)
+# Qt 6.8 exports GuiPrivate with Gui; newer Qt splits out its package.
+if(NOT TARGET Qt6::GuiPrivate)
+    find_package(Qt6GuiPrivate REQUIRED)
+endif()
+# windows.h defines min/max macros that break std::max and numeric_limits<T>::max().
+if(WIN32)
+    add_compile_definitions(NOMINMAX)
+endif()
 add_subdirectory(cmake/core)
 include(cmake/filters.cmake)
 include(cmake/controllers.cmake)
@@ -27,10 +35,17 @@ qt_add_executable(sameboy-qt WIN32
     src/settings.cpp src/settings.h src/settingsdialog.cpp src/settingsdialog.h src/cheatsdialog.cpp src/cheatsdialog.h)
 target_link_libraries(sameboy-qt PRIVATE sameboy-core Qt6::Widgets Qt6::Multimedia Qt6::Network)
 target_sources(sameboy-qt PRIVATE src/singleinstance.cpp)
+# Windows keeps settings beside the executable by default; -DSAMEBOY_PORTABLE=OFF uses %APPDATA%.
+option(SAMEBOY_PORTABLE "Store the settings INI beside the executable (Windows)" ON)
+if(WIN32 AND SAMEBOY_PORTABLE)
+    target_compile_definitions(sameboy-qt PRIVATE SAMEBOY_PORTABLE)
+endif()
 if(WIN32)
     enable_language(RC)
     if(MSVC)
-        target_sources(sameboy-qt PRIVATE resources/windows/app.manifest)
+        # The manifest is a plain source for MSVC; the icon needs its own resource script.
+        configure_file(resources/windows/app-icon.rc.in "${CMAKE_CURRENT_BINARY_DIR}/app-icon.rc" @ONLY)
+        target_sources(sameboy-qt PRIVATE resources/windows/app.manifest "${CMAKE_CURRENT_BINARY_DIR}/app-icon.rc")
     else()
         configure_file(resources/windows/app.rc.in "${CMAKE_CURRENT_BINARY_DIR}/app.rc" @ONLY)
         target_sources(sameboy-qt PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/app.rc")
@@ -41,7 +56,12 @@ qt_add_resources(sameboy-qt bootroms PREFIX "/bootroms" BASE resources/bootroms
     resources/bootroms/mgb_boot.bin resources/bootroms/cgb0_boot.bin
     resources/bootroms/sgb_boot.bin resources/bootroms/sgb2_boot.bin resources/bootroms/agb_boot.bin)
 
+# The window icon on Windows and Linux (macOS takes the bundle icon below).
+qt_add_resources(sameboy-qt app_icon PREFIX "/icons" BASE resources/icons FILES resources/icons/sameboy-qt.png)
 if(APPLE)
+    set(sameboy_icns "${PROJECT_SOURCE_DIR}/resources/icons/sameboy-qt.icns")
+    target_sources(sameboy-qt PRIVATE "${sameboy_icns}")
+    set_source_files_properties("${sameboy_icns}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     set_target_properties(sameboy-qt PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${PROJECT_SOURCE_DIR}/resources/macos/Info.plist.in"
         MACOSX_BUNDLE_GUI_IDENTIFIER "org.sameboy.qt"
@@ -50,7 +70,23 @@ if(APPLE)
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
 endif()
 install(TARGETS sameboy-qt BUNDLE DESTINATION . RUNTIME DESTINATION bin)
-install(FILES SameBoy/LICENSE DESTINATION share/licenses/sameboy-qt RENAME SameBoy-LICENSE)
+if(UNIX AND NOT APPLE)
+    install(FILES resources/linux/sameboy-qt.desktop DESTINATION share/applications)
+    foreach(size 16 32 48 64 128 256 512)
+        install(FILES resources/icons/linux/${size}.png
+            DESTINATION share/icons/hicolor/${size}x${size}/apps RENAME sameboy-qt.png)
+    endforeach()
+endif()
+# Windows keeps the whole package beside the executable: bin/plugins and bin/share.
+if(WIN32)
+    set(sameboy_data_dir bin/share)
+else()
+    set(sameboy_data_dir share)
+endif()
+install(FILES SameBoy/LICENSE DESTINATION ${sameboy_data_dir}/licenses/sameboy-qt RENAME SameBoy-LICENSE)
+install(FILES LICENSE DESTINATION ${sameboy_data_dir}/licenses/sameboy-qt RENAME SameBoyQt-LICENSE)
+install(FILES resources/licenses/THIRD-PARTY-NOTICES.txt resources/licenses/LGPL-2.1.txt resources/licenses/LGPL-3.0.txt
+    DESTINATION ${sameboy_data_dir}/licenses/sameboy-qt)
 if(MSVC)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
     include(InstallRequiredSystemLibraries)
@@ -63,7 +99,8 @@ if(MSVC)
         install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION bin)
     endif()
 endif()
-if(WIN32)
+# Cross-compiling from Linux cannot run windeployqt; cmake/deploy-windows-cross.py deploys instead.
+if(WIN32 AND NOT CMAKE_CROSSCOMPILING)
     set(sameboy_deploy_options)
     if(MSVC AND QT_HOST_PATH AND NOT EXISTS "${QT6_INSTALL_PREFIX}/bin/qtpaths6.exe")
         set(sameboy_target_qt_conf "${QT6_INSTALL_PREFIX}/bin/target_qt.conf")
@@ -72,7 +109,12 @@ if(WIN32)
     endif()
     qt_generate_deploy_app_script(TARGET sameboy-qt OUTPUT_SCRIPT deploy_script
         NO_UNSUPPORTED_PLATFORM_ERROR NO_TRANSLATIONS DEPLOY_TOOL_OPTIONS ${sameboy_deploy_options})
+    # QtDeploySupport keeps a preset value, so plugins are deployed into bin/plugins.
+    install(CODE [[set(QT_DEPLOY_PLUGINS_DIR "bin/plugins")]])
     install(SCRIPT ${deploy_script})
+    # The generated qt.conf names "../bin/plugins"; make it relative to the executable
+    # so the bin folder still starts after being copied or renamed.
+    install(CODE [[file(WRITE "${CMAKE_INSTALL_PREFIX}/bin/qt.conf" "[Paths]\nPrefix = .\nPlugins = plugins\n")]])
 elseif(APPLE)
     qt_generate_deploy_app_script(TARGET sameboy-qt OUTPUT_SCRIPT deploy_script
         NO_UNSUPPORTED_PLATFORM_ERROR NO_TRANSLATIONS)
@@ -100,6 +142,13 @@ if(BUILD_TESTING)
     add_executable(settings-smoke tests/settings_smoke.cpp src/settings.cpp src/settingsdialog.cpp src/screenwidget.cpp)
     target_link_libraries(settings-smoke PRIVATE sameboy-core Qt6::Widgets)
     add_test(NAME settings-smoke COMMAND settings-smoke)
+    # Integer scaling at whole and fractional (Windows 125%/150%) scale factors.
+    foreach(factor 75 100 125 150)
+        math(EXPR whole "${factor} / 100")
+        math(EXPR part "${factor} % 100")
+        add_test(NAME settings-integer-scale-${factor} COMMAND settings-smoke --integer-scale)
+        set_tests_properties(settings-integer-scale-${factor} PROPERTIES TIMEOUT 20 ENVIRONMENT "QT_SCALE_FACTOR=${whole}.${part}")
+    endforeach()
     add_executable(menu-smoke tests/menu_smoke.cpp src/mainwindow.cpp src/mainwindow_menus.cpp
         src/emulator.cpp src/settings.cpp src/settingsdialog.cpp src/screenwidget.cpp src/cheatsdialog.cpp)
     target_compile_definitions(menu-smoke PRIVATE SAMEBOY_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
@@ -108,13 +157,14 @@ if(BUILD_TESTING)
         FILES resources/bootroms/dmg_boot.bin resources/bootroms/cgb_boot.bin
         resources/bootroms/mgb_boot.bin resources/bootroms/cgb0_boot.bin
         resources/bootroms/sgb_boot.bin resources/bootroms/sgb2_boot.bin resources/bootroms/agb_boot.bin)
-    add_test(NAME menu-smoke COMMAND menu-smoke)
-    set_tests_properties(menu-smoke PROPERTIES TIMEOUT 30)
-    set_tests_properties(settings-smoke PROPERTIES TIMEOUT 20)
-    if(UNIX AND NOT APPLE)
-        set_tests_properties(settings-smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-        set_tests_properties(menu-smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # Stall diagnostics print thread stacks (tests/stack_dump.h).
+    if(WIN32)
+        target_link_libraries(menu-smoke PRIVATE dbghelp)
     endif()
+    add_test(NAME menu-smoke COMMAND menu-smoke)
+    set_tests_properties(menu-smoke PROPERTIES TIMEOUT 60)
+    set_tests_properties(settings-smoke PROPERTIES TIMEOUT 20)
+    # GUI tests use the desktop display, or Xvfb supplied by build-linux.sh.
     set_tests_properties(core-dmg core-cgb worker-smoke worker-cgb PROPERTIES TIMEOUT 20)
     set_tests_properties(worker-audio96 PROPERTIES TIMEOUT 20)
     add_executable(audio-smoke tests/audio_smoke.cpp src/audiobuffer.cpp)
@@ -160,7 +210,7 @@ foreach(target sameboy-qt settings-smoke menu-smoke)
         target_link_libraries(${target} PRIVATE SDL3::SDL3-static)
     endif()
 endforeach()
-install(FILES "${sdl3_SOURCE_DIR}/LICENSE.txt" DESTINATION share/licenses/sameboy-qt RENAME SDL-LICENSE.txt)
+install(FILES "${sdl3_SOURCE_DIR}/LICENSE.txt" DESTINATION ${sameboy_data_dir}/licenses/sameboy-qt RENAME SDL-LICENSE.txt)
 
 foreach(target sameboy-qt menu-smoke)
     if(TARGET ${target})
@@ -206,6 +256,9 @@ endif()
 
 if(APPLE)
     install(FILES SameBoy/LICENSE DESTINATION sameboy-qt.app/Contents/Resources/licenses RENAME SameBoy-LICENSE)
+    install(FILES LICENSE DESTINATION sameboy-qt.app/Contents/Resources/licenses RENAME SameBoyQt-LICENSE)
+    install(FILES resources/licenses/THIRD-PARTY-NOTICES.txt resources/licenses/LGPL-2.1.txt resources/licenses/LGPL-3.0.txt
+        DESTINATION sameboy-qt.app/Contents/Resources/licenses)
     install(FILES "${sdl3_SOURCE_DIR}/LICENSE.txt" DESTINATION sameboy-qt.app/Contents/Resources/licenses RENAME SDL-LICENSE.txt)
 endif()
 
@@ -242,9 +295,21 @@ if(BUILD_TESTING)
     set_tests_properties(debug-smoke PROPERTIES TIMEOUT 20)
 endif()
 
+# Generate the catalog in each build tree; fresh checkouts do not contain ignored .qm files.
+find_program(SAMEBOY_LRELEASE NAMES lrelease lrelease6
+    HINTS "${QT_HOST_PATH}/bin" "${QT6_INSTALL_PREFIX}/bin" "/usr/lib/qt6/bin" REQUIRED)
+set(sameboy_translation_dir "${PROJECT_BINARY_DIR}/translations")
+file(MAKE_DIRECTORY "${sameboy_translation_dir}")
+set(sameboy_translation_qm "${sameboy_translation_dir}/zh_CN.qm")
+add_custom_command(OUTPUT "${sameboy_translation_qm}"
+    COMMAND "${SAMEBOY_LRELEASE}" "${PROJECT_SOURCE_DIR}/translations/zh_CN.ts" -qm "${sameboy_translation_qm}"
+    DEPENDS "${PROJECT_SOURCE_DIR}/translations/zh_CN.ts" VERBATIM)
+add_custom_target(sameboy-translations DEPENDS "${sameboy_translation_qm}")
 foreach(target sameboy-qt menu-smoke settings-smoke)
     if(TARGET ${target})
-        qt_add_resources(${target} interface_translations PREFIX "/translations" BASE translations FILES translations/zh_CN.qm)
+        add_dependencies(${target} sameboy-translations)
+        qt_add_resources(${target} interface_translations PREFIX "/translations"
+            BASE "${sameboy_translation_dir}" FILES "${sameboy_translation_qm}")
     endif()
 endforeach()
 if(BUILD_TESTING)
@@ -276,9 +341,9 @@ foreach(target sameboy-qt menu-smoke)
 endforeach()
 target_sources(sameboy-qt PRIVATE src/aiclient.cpp)
 
-install(FILES docs/ai-debugging.txt docs/mac-parity-review-prompt.txt docs/third-party-review.txt DESTINATION share/doc/sameboy-qt)
+install(FILES docs/ai-debugging.txt DESTINATION ${sameboy_data_dir}/doc/sameboy-qt)
 
-install(FILES examples/sameboy.py examples/play_example.py DESTINATION share/examples/sameboy-qt)
+install(FILES examples/sameboy.py examples/play_example.py DESTINATION ${sameboy_data_dir}/examples/sameboy-qt)
 if(BUILD_TESTING)
     add_executable(video-smoke tests/video_smoke.cpp src/videorecorder.cpp)
     sameboy_add_filters(video-smoke)
@@ -304,4 +369,15 @@ if(BUILD_TESTING)
     target_link_libraries(theme-smoke PRIVATE sameboy-core Qt6::Widgets Qt6::PrintSupport)
     add_test(NAME theme-smoke COMMAND theme-smoke)
     set_tests_properties(theme-smoke PROPERTIES TIMEOUT 15)
+endif()
+
+# A separately installed Qt Multimedia may keep its plugins outside QtBase's prefix.
+if(BUILD_TESTING AND TARGET Qt6::QFFmpegMediaPlugin)
+    get_target_property(sameboy_ffmpeg_plugin Qt6::QFFmpegMediaPlugin IMPORTED_LOCATION_RELEASE)
+    if(sameboy_ffmpeg_plugin)
+        get_filename_component(sameboy_media_plugins "${sameboy_ffmpeg_plugin}" DIRECTORY)
+        get_filename_component(sameboy_plugin_root "${sameboy_media_plugins}" DIRECTORY)
+        set_property(TEST menu-smoke video-smoke APPEND PROPERTY ENVIRONMENT_MODIFICATION
+            "QT_PLUGIN_PATH=path_list_prepend:${sameboy_plugin_root}")
+    endif()
 endif()

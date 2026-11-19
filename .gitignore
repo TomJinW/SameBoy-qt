@@ -43,9 +43,13 @@ ui_*.h
 *.jsc
 Makefile*
 *build-*
+!build-linux.sh
+!build-linux-apple-container.sh
 !build-macos-arm64.sh
 !build-windows-arm64.cmd
 !build-windows-x64.cmd
+!build-windows-x64-mingw.sh
+!build-windows-x64-apple-container.sh
 build/
 *.qm
 *.prl
@@ -71,3 +75,11 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+!package-linux-appimage.sh
+
+# Internal audit records, kept locally and not published
+/docs/cocoa-audit.txt
+/docs/full-audit-goal-prompt.txt
+/docs/audio-audit31.txt
+/docs/performance-audit30.txt

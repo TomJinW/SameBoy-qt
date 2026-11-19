@@ -1,6 +1,6 @@
 Third-party licensing review
 
-SameBoy core pinned at 19a7b14cfb10bb20b0f931b3d77359c11f866e17:
+SameBoy core pinned at ea667ad79aa28409f034b1fd6da7304e1844750d:
 https://github.com/LIJI32/SameBoy
 Core, Cocoa and shader sources are covered by the Expat terms in SameBoy/LICENSE.
 The Qt frontend does not incorporate upstream iOS or HexFiend components.
@@ -12,14 +12,20 @@ Before public redistribution, audit the exact deployed Qt modules/plugins, FFmpe
 compiler runtimes and other dependencies. Include their applicable copyright/license
 notices and fulfill their source availability/relinking requirements (or use an appropriate
 commercial license). Record the exact versions, build options and matching source locations.
-Dynamic linking alone does not discharge all LGPL obligations. No frontend license is
-selected by this review; repository authors must decide their own license.
+Dynamic linking alone does not discharge all LGPL obligations. The frontend itself is MIT-licensed (LICENSE).
+The optional EZ-Flash Junior cartridge (GPL-2, based on gnuboy-ezj) is not part of this license or of the main branch;
+it lives on the separate ezj branch, and a build that includes it is a GPL-2 work.
 
 Upstream sources for the obligations:
 https://github.com/LIJI32/SameBoy/blob/master/LICENSE
 https://www.qt.io/development/open-source-lgpl-obligations
 https://www.qt.io/faq/qt-open-source-licensing
 
-Current verified scope: upstream core license preservation and SDL notice installation.
-Remaining release scope: complete dependency notices, corresponding-source provision,
-and final package redistribution review. Development packages are not advertised as audited releases.
+Current verified scope: upstream core license preservation, SDL notice installation, and
+FFmpeg: the macOS and Linux build scripts build an LGPL-only FFmpeg and refuse to package a
+libavutil that is not LGPL (GPL codec libraries such as libx264/libx265 are also kept out of the
+AppImage). THIRD-PARTY-NOTICES.txt and the LGPL texts are installed under licenses/.
+Remaining release scope: the Windows FFmpeg DLLs come from the Qt binary distribution and have only
+been checked to report LGPL (no libx264/libx265); the source offer in THIRD-PARTY-NOTICES.txt points to
+https://github.com/tomjinw/sameboy-qt, which must contain the tagged source matching each release; the Debian-sourced Linux libraries and the final package still need a
+redistribution review. Development packages are not advertised as audited releases.

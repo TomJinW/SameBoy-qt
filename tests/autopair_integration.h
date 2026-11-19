@@ -18,7 +18,7 @@ inline bool autoPairIntegration(MainWindow&window){
  if(sides!=2){std::fputs("Virtual Joy-Con identity was not recognized\n",stderr);return false;}
  QElapsedTimer wait;wait.start();while(!qApp->property("expectedTestDialogSeen").toBool()&&wait.elapsed()<2000){qApp->processEvents();QThread::msleep(1);}
  if(!qApp->property("expectedTestDialogSeen").toBool())return false;
- QAction*preferences=nullptr;for(auto*action:window.findChildren<QAction*>())if(QString(action->text()).remove('&')=="Preferences…")preferences=action;if(!preferences)return false;
+ auto*preferences=window.findChild<QAction*>("preferencesAction");if(!preferences)return false;
  auto inspectSettings=[&](bool accept){std::optional<AppSettings> actual;QTimer inspect;
   QObject::connect(&inspect,&QTimer::timeout,&window,[&]{for(auto*widget:qApp->topLevelWidgets())if(auto*dialog=dynamic_cast<SettingsDialog*>(widget);dialog&&dialog->isVisible()&&dialog->isModal()){inspect.stop();actual=dialog->settings();if(accept)dialog->accept();else dialog->reject();break;}});inspect.start(10);preferences->trigger();return actual;
  };

@@ -58,8 +58,19 @@ int runAiClient(QStringList args){
         if(args.size()!=1)return clientError("--stdin cannot be combined with a method or params argument");
         QFile input;
         if(!input.open(stdin,QIODevice::ReadOnly))return clientError("Could not read stdin");
-        const auto bytes=input.read(MaxRequestBytes+1);
-        if(input.error()!=QFileDevice::NoError)return clientError("Could not read stdin");
+        QByteArray bytes;
+        // A pipe read may return only one chunk on Unix. Read through EOF while
+        // retaining the one-byte overflow probe and the same memory bound.
+        while(bytes.size()<=MaxRequestBytes){
+#ifdef Q_OS_WIN
+            // Qt reports a read error, not an empty chunk, for a sequential FILE* already at EOF.
+            if(std::feof(stdin))break;
+#endif
+            const auto chunk=input.read(MaxRequestBytes+1-bytes.size());
+            if(input.error()!=QFileDevice::NoError)return clientError("Could not read stdin");
+            if(chunk.isEmpty())break;
+            bytes+=chunk;
+        }
         if(bytes.size()>MaxRequestBytes)return clientError("stdin request exceeds the 1 MiB limit");
         QJsonParseError parseError;
         const auto document=QJsonDocument::fromJson(bytes,&parseError);

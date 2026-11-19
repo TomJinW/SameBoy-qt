@@ -44,14 +44,15 @@ int main(int argc,char**argv){QApplication app(argc,argv);auto*gb=GB_init(GB_all
  CHECK(writeDebugMemory(gb,1,1,0x4000,0x42).isEmpty()&&uint8_t(debugMemory(gb,1,1).bytes[0x4000])==0x42);
  GB_clear_battery_dirty(gb);CHECK(writeDebugMemory(gb,3,0,0,0x66).isEmpty()&&GB_get_battery_dirty(gb));
  auto ram=debugMemory(gb,4,2);CHECK(ram.base==0xc000&&ram.bytes.size()==0x2000);
- CHECK(writeDebugMemory(gb,4,2,0x1000,0x35).isEmpty());CHECK(uint8_t(debugMemory(gb,4,2).bytes[0x1000])==0x35);CHECK(uint8_t(debugMemory(gb,4,1).bytes[0x1000])!=0x35);
+ CHECK(writeDebugMemory(gb,4,1,0x1000,0x76).isEmpty());
+ CHECK(writeDebugMemory(gb,4,2,0x1000,0x35).isEmpty());CHECK(uint8_t(debugMemory(gb,4,2).bytes[0x1000])==0x35);CHECK(uint8_t(debugMemory(gb,4,1).bytes[0x1000])==0x76);
  CHECK(debugMemory(gb,1,1).bytes.size()==0x8000&&debugMemory(gb,1,1).base==0);
  CHECK(!writeDebugMemory(gb,2,99,0,0).isEmpty());
  auto*go=memoryDialog->findChild<QLineEdit*>();go->setText("$8010");CHECK(QMetaObject::invokeMethod(go,"returnPressed",Qt::DirectConnection));CHECK(table->currentIndex().row()==1);
  if(argc>1)CHECK(memoryDialog->grab().save(QString::fromLocal8Bit(argv[1])+"/debug-memory.png"));delete memoryDialog;
  auto*viewer=new VramDialog(execute,QFont("Consolas",12));viewer->setAttribute(Qt::WA_DontShowOnScreen);viewer->show();auto*tabs=viewer->findChild<QTabWidget*>("vramTabs");CHECK(tabs&&tabs->count()==4);
  auto*tilesViewport=viewer->findChild<QWidget*>("vramTilesetViewport");auto*tilesGrid=viewer->findChild<QCheckBox*>("vramTilesetGrid");CHECK(tilesViewport&&tilesGrid);CHECK(tilesViewport->width()==512);
- for(bool grid:{false,true}){tilesGrid->setChecked(grid);app.processEvents();auto capture=tilesViewport->grab().toImage();CHECK(capture.pixelColor(capture.width()-2,capture.height()-2)==tilesViewport->palette().color(QPalette::Mid));if(argc>1)CHECK(viewer->grab().save(QString::fromLocal8Bit(argv[1])+(grid?"/tileset-grid.png":"/tileset-no-grid.png")));}
+ for(bool grid:{false,true}){tilesGrid->setChecked(grid);app.processEvents();auto capture=tilesViewport->grab().toImage();CHECK(capture.pixelColor(capture.width()-2,capture.height()-2).rgba()==tilesViewport->palette().color(QPalette::Mid).rgba());if(argc>1)CHECK(viewer->grab().save(QString::fromLocal8Bit(argv[1])+(grid?"/tileset-grid.png":"/tileset-no-grid.png")));}
  for(int tab=0;tab<4;++tab){tabs->setCurrentIndex(tab);app.processEvents();if(tab==1){auto*scrolling=viewer->findChild<QCheckBox*>("vramScrolling");CHECK(scrolling);scrolling->setChecked(true);app.processEvents();}if(argc>1)CHECK(viewer->grab().save(QString::fromLocal8Bit(argv[1])+QString("/debug-vram-%1.png").arg(tab)));}
  auto*format=viewer->findChild<QComboBox*>("vramColorFormat");auto*paletteTable=viewer->findChild<QTableWidget*>("vramPaletteTable");CHECK(format&&format->currentIndex()==0&&paletteTable&&paletteTable->item(0,0)->text()=="$9234");format->setCurrentIndex(1);CHECK(paletteTable->item(0,0)->text().startsWith("#"));bgp[0]=0xcd;bgp[1]=0x12;format->setCurrentIndex(0);viewer->requestRefresh();CHECK(paletteTable->item(0,0)->text()=="$12CD");
  bgp[0]=0xff;bgp[1]=0x7f;bgp[2]=bgp[3]=0;viewer->requestRefresh();CHECK(paletteTable->item(0,0)->foreground().style()!=Qt::NoBrush&&paletteTable->item(0,0)->foreground().color()==Qt::black);CHECK(paletteTable->item(0,1)->foreground().color()==Qt::white&&paletteTable->item(0,1)->background().style()!=Qt::NoBrush&&paletteTable->item(0,1)->background().color()==Qt::black);
@@ -59,6 +60,13 @@ int main(int argc,char**argv){QApplication app(argc,argv);auto*gb=GB_init(GB_all
  // Dense objects use wrapping cards with a scrollable content height.
  for(int i=0;i<40;++i){oam[i*4]=16;oam[i*4+1]=8;}tabs->setCurrentIndex(2);app.processEvents();
  auto*objectCards=viewer->findChild<QWidget*>("vramObjects");CHECK(objectCards&&objectCards->property("objectCount").toInt()==40&&objectCards->property("objectColumns").toInt()==4);
+ // 8x16 objects keep their shape (Cocoa GBObjectView scales by 32/height) instead of filling a square.
+ {const uint8_t lcdc=GB_read_memory(gb,0xff40);oam[2]=2;for(int i=32;i<64;++i)vram[i]=0xff;GB_write_memory(gb,0xff40,lcdc|4);viewer->requestRefresh();{QElapsedTimer settle;settle.start();while(settle.elapsed()<150)app.processEvents(QEventLoop::AllEvents,10);}
+  const auto card=objectCards->grab().toImage();const qreal dpr=card.devicePixelRatio();auto at=[&](int x,int y){return card.pixelColor(int(x*dpr),int(y*dpr));};
+  const auto base=objectCards->palette().color(QPalette::Base);
+  if(at(8,22)!=base||at(22,22)==base||at(35,22)!=base){std::fprintf(stderr,"8x16 object preview is not 16x32: left=%s centre=%s right=%s\n",qPrintable(at(8,22).name()),qPrintable(at(22,22).name()),qPrintable(at(35,22).name()));return 1;}
+  if(argc>1)CHECK(objectCards->grab().save(QString::fromLocal8Bit(argv[1])+"/debug-objects-8x16.png"));
+  GB_write_memory(gb,0xff40,lcdc);oam[2]=0;viewer->requestRefresh();app.processEvents();}
  viewer->resize(590,680);app.processEvents();CHECK(objectCards->property("objectColumns").toInt()==4);viewer->resize(640,680);app.processEvents();CHECK(objectCards->property("objectColumns").toInt()==4);
  auto*objectScroll=dynamic_cast<QScrollArea*>(tabs->widget(2));CHECK(objectScroll&&objectScroll->verticalScrollBar()->maximum()>0);
  objectScroll->verticalScrollBar()->setValue(objectScroll->verticalScrollBar()->maximum());const int scrollValue=objectScroll->verticalScrollBar()->value();

@@ -35,7 +35,8 @@ AiDebugServer::AiDebugServer(QString name,QObject*parent):QObject(parent),name_(
   const auto session=session_;QPointer<QObject>context(sessionContext_);
   if(clients_.size()>=32||!session||!session->active()||!context){socket->abort();socket->deleteLater();continue;}
   clients_.insert(socket);connect(socket,&QLocalSocket::disconnected,this,[this,socket]{clients_.remove(socket);});
-  socket->setReadBufferSize(1024*1024);connect(socket,&QLocalSocket::disconnected,socket,&QObject::deleteLater);
+  // Drain bounded transport chunks; the separate framing buffer retains its overflow probe.
+  socket->setReadBufferSize(64*1024);connect(socket,&QLocalSocket::disconnected,socket,&QObject::deleteLater);
   auto*pump=new QTimer(socket);pump->setObjectName("rpcReadPump");pump->setSingleShot(true);pump->setInterval(0);
   auto*partial=new QTimer(socket);partial->setSingleShot(true);partial->setInterval(5000);partial->setTimerType(Qt::PreciseTimer);
   connect(partial,&QTimer::timeout,socket,&QLocalSocket::abort);
@@ -64,7 +65,10 @@ bool AiDebugServer::setEnabled(bool enabled){
  error_.clear();
  if(enabled&&!server_.isListening()){
   session_=std::make_shared<RequestSession>();sessionContext_=new QObject(this);sessionContext_->setObjectName("debugRequestSession");
-  if(!server_.listen(name_)){session_->close();delete sessionContext_;sessionContext_=nullptr;session_.reset();return false;}
+  // A crashed process leaves its Unix socket file behind (a no-op for Windows pipes). Only the
+  // single-instance primary uses the default endpoint, so a stale file cannot belong to a live peer.
+  if(!server_.listen(name_)&&server_.serverError()==QAbstractSocket::AddressInUseError){QLocalServer::removeServer(name_);server_.listen(name_);}
+  if(!server_.isListening()){error_=tr("Could not start the debug interface: %1").arg(server_.errorString());session_->close();delete sessionContext_;sessionContext_=nullptr;session_.reset();return false;}
  }
  if(!enabled){
   if(session_)session_->close();delete sessionContext_;sessionContext_=nullptr;session_.reset();

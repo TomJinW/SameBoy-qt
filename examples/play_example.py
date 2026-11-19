@@ -1,6 +1,8 @@
-"""Run after: sameboy-qt.exe --debug-server game.gbc
+"""Run after starting the app with --debug-server game.gbc.
 
-Usage: python play_example.py PATH/TO/sameboy-qt.exe [WINDOW_ID]
+Usage: python play_example.py PATH/TO/EXECUTABLE [WINDOW_ID]
+EXECUTABLE is bin\\sameboy-qt.exe (Windows), sameboy-qt.app/Contents/MacOS/sameboy-qt (macOS),
+bin/sameboy-qt or the AppImage file (Linux).
 The example holds Right for eight game frames, then pauses and saves a PNG.
 """
 import sys

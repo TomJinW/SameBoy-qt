@@ -31,7 +31,7 @@ struct EmulatorInput {
 // The GUI consumes only bounded snapshots, never a queued signal per frame.
 class Emulator final : public QThread {
 public:
-    Emulator(QByteArray rom, QByteArray boot, QString savePath, bool color, AppSettings settings = {},unsigned sampleRate=48000,std::shared_ptr<AudioBuffer> output={},QString legacySavePath={},std::shared_ptr<CameraInput> cameraInput={});
+    Emulator(QByteArray rom, QByteArray boot, QString savePath, int color, AppSettings settings = {},unsigned sampleRate=48000,std::shared_ptr<AudioBuffer> output={},QString legacySavePath={},std::shared_ptr<CameraInput> cameraInput={});
     ~Emulator() override;
     void setKeys(uint8_t keys) { keys_.store(keys); }
     void setPaused(bool paused) { QMutexLocker lock(&mutex_);++stepControlEpoch_;stepCancelRequested_=true;paused_.store(paused); }
@@ -69,7 +69,11 @@ public:
     QString takeError();
     QString flushBattery();
     void discardBatteryOnClose(bool discard=true);
+    double cpuFrequencyHz()const{return cpuFrequencyHz_.load();}
+    double recordingFrameRate()const{return recordingFrameRate_.load();}
     double emulationSpeed() const{return speed_.load();}
+    // Frames the core has produced, whether or not the GUI drew each of them.
+    quint64 emulatedFrames() const{return emulatedFrames_.load();}
 protected:
     void run() override;
 private:
@@ -101,12 +105,13 @@ private:
     std::atomic<float> rumble_{0};
     QByteArray rom_, boot_;
     QString savePath_,legacySavePath_;
-    bool color_;
+    int color_; // romModelFamily: 0 DMG, 1 CGB, 2 SGB
     bool batteryReadFailed_=false;
     AppSettings settings_;
     unsigned sampleRate_;
     std::shared_ptr<AudioBuffer> audioOutput_;
-    std::atomic<double> speed_{1};
+    std::atomic<double> speed_{1},cpuFrequencyHz_{4194304},recordingFrameRate_{59.7275};
+    std::atomic<quint64> emulatedFrames_{0};
     std::optional<AppSettings> pendingSettings_;
     std::atomic<uint8_t> actions_{0};
     std::atomic<uint8_t> keys_{0};

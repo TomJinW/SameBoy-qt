@@ -6,6 +6,9 @@ set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+# Qt owns all windows; SDL is intentionally input-only. SDL's Unix summary
+# otherwise rejects builds without its own X11/Wayland video backend.
+set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "" FORCE)
 foreach(subsystem AUDIO VIDEO RENDER GPU CAMERA DIALOG TRAY)
     set(SDL_${subsystem} OFF CACHE BOOL "" FORCE)
 endforeach()

@@ -33,6 +33,10 @@ int main(int argc,char **argv){QApplication app(argc,argv);QTemporaryDir directo
         auto *table=dialog.findChild<QTableWidget *>();if(table->rowCount()!=1)return 1;
         dialog.findChild<QLineEdit *>("cheatDescription")->setText("Health");dialog.findChild<QLineEdit *>("cheatAddress")->setText("$00:$C000");dialog.findChild<QLineEdit *>("cheatValue")->setText("$77");button("Apply")->click();
         auto entries=cheatEntries(gb);if(entries.size()!=1||entries[0].description!="Health"||entries[0].address!=0xc000||entries[0].value!=0x77)return 1;
+        // Cocoa updateCheat/debugger literals: '$' (or 0x) marks hex, a plain number is decimal.
+        for(const auto&[text,expected]:std::initializer_list<std::pair<const char*,int>>{{"10",10},{"0x2A",42},{"$77",0x77}}){
+            dialog.findChild<QLineEdit *>("cheatValue")->setText(text);button("Apply")->click();
+            if(cheatEntries(gb).first().value!=expected){std::fprintf(stderr,"Cheat value \"%s\" was stored as %d, Cocoa stores %d\n",text,cheatEntries(gb).first().value,expected);return 1;}}
         table->item(0,0)->setCheckState(Qt::Unchecked);if(cheatEntries(gb).first().enabled)return 1;
         const auto stored=cheatSavePath(base),backup=stored+".backup";if(!QFile::rename(stored,backup)||!QDir().mkdir(stored))return 1;
         const bool warned=expectWriteError([&]{table->item(0,0)->setCheckState(Qt::Checked);});
@@ -57,6 +61,13 @@ int main(int argc,char **argv){QApplication app(argc,argv);QTemporaryDir directo
         if(!QDir().rmdir(stored)||!QFile::rename(backup,stored))return 1;
         if(!warned||!unchanged){std::fputs("Failed cheat save still modified the core or reported success\n",stderr);return 1;}
         add->click();if(!added||cheatEntries(gb).size()!=2)return 1;
+        // Cocoa GBCheatSearchController: editing the current value writes memory, evaluated as a debugger expression.
+        {const auto*wram=static_cast<const uint8_t*>(GB_get_direct_access(gb,GB_DIRECT_ACCESS_RAM,nullptr,nullptr));
+         table->item(found,2)->setText("$40+2");app.processEvents();
+         if(wram[0]!=0x42||table->item(found,2)->text()!="$42"){std::fprintf(stderr,"Editing a search result did not write memory: $%02X, shown %s\n",wram[0],qPrintable(table->item(found,2)->text()));return 1;}
+         QString warning;QTimer dismiss;QObject::connect(&dismiss,&QTimer::timeout,&app,[&]{for(auto*widget:app.topLevelWidgets())if(auto*box=qobject_cast<QMessageBox*>(widget);box&&box->isVisible()){warning=box->text();box->accept();}});dismiss.start(10);
+         table->item(found,2)->setText("not an expression");dismiss.stop();const bool rejected=warning.contains("Invalid value or expression");
+         if(!rejected||wram[0]!=0x42){std::fputs("An invalid search value was not rejected\n",stderr);return 1;}}
         if(argc>1&&!dialog.grab().save(QString::fromLocal8Bit(argv[1])+"/cheat-search.png"))return 1;
         dialog.hide();const int before=reads;for(auto*timer:dialog.findChildren<QTimer*>())QMetaObject::invokeMethod(timer,"timeout",Qt::DirectConnection);
         if(reads!=before){std::fputs("Hidden cheat search still reads the core\n",stderr);return 1;}

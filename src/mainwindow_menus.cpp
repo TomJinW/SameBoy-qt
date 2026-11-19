@@ -3,6 +3,7 @@
 #include "core_version.h"
 #include "emulator.h"
 #include "videorecorder.h"
+#include "debuggerbridge.h"
 #include <QFormLayout>
 #include <QLabel>
 #include <QComboBox>
@@ -23,6 +24,7 @@
 #include "audiooutput.h"
 #include <QClipboard>
 #include <QDataStream>
+#include <QUuid>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
@@ -89,12 +91,24 @@ void MainWindow::buildMenus()
         pause_->setChecked(paused);
     }, true);
     file->addSeparator();
+#ifdef Q_OS_MACOS
+    add(file,tr("Close"),QKeySequence(QKeySequence::Close).toString(),[this]{close();});
+    add(file,tr("Close ROM"),{},[this]{closeCartridge();},true);
+#else
     add(file, tr("Close"), "Ctrl+W", [this] { closeCartridge(); }, true);
+#endif
     saveRomAction_=add(file, tr("Save ROM Modifications"), "Ctrl+Alt+Shift+S", [this] { saveRom(false); }, true);
     saveRomAsAction_=add(file, tr("Save ROM Modifications As…"), "Ctrl+Alt+Shift+E", [this] { saveRom(true); }, true);
     auto *reload = add(file, tr("Reload ROM"), "Ctrl+Shift+R", [this] { if (!romPath_.isEmpty()) openRom(romPath_); }, true);
     file->addSeparator();
+#ifdef Q_OS_MACOS
+    preferencesAction_=add(file,tr("Settings…"),{},[this]{showPreferences();});
+    preferencesAction_->setMenuRole(QAction::PreferencesRole);
+    preferencesAction_->setShortcut(QKeySequence::Preferences);
+#else
     preferencesAction_=add(file,tr("Preferences…"),"Ctrl+,",[this]{showPreferences();});
+#endif
+    preferencesAction_->setObjectName("preferencesAction");
     add(file,tr("Camera Settings…"),{},[this]{showPreferences(4);});
     file->addSeparator();
     add(file,tr("Exit"),"Ctrl+Q",[]{QApplication::closeAllWindows();});
@@ -131,7 +145,7 @@ void MainWindow::buildMenus()
     emulation->addSeparator();
     screenshotAction_=add(emulation, tr("Save Screenshot"), "Ctrl+S", [this] { saveScreenshot(false); }, true);
     add(emulation, tr("Save Screenshot As…"), "Ctrl+Alt+S", [this] { saveScreenshot(true); }, true);
-    add(emulation, tr("Copy Screenshot"), "Ctrl+Shift+S", [this] { QApplication::clipboard()->setImage(screen_->screenshot()); }, true);
+    add(emulation, tr("Copy Screenshot"), "Ctrl+Shift+S", [this] { QApplication::clipboard()->setImage(screen_->screenshot()); screen_->showMessage(tr("Screenshot copied")); }, true);
     emulation->addSeparator();
     record_ = add(emulation, tr("Start Audio Recording…"), "Ctrl+Shift+A", [this] { toggleRecording(); }, true);
     videoRecordAction_=add(emulation,tr("Start Video Recording…"),"Ctrl+Shift+V",[this]{toggleVideoRecording();},true);
@@ -189,12 +203,20 @@ void MainWindow::buildMenus()
     });
     auto*debug=debugMenu_=menuBar()->addMenu(tr("&Debug"));
     developerModeAction_=debug->addAction(tr("Developer Mode"));developerModeAction_->setCheckable(true);developerModeAction_->setChecked(settings_.developerMode);connect(developerModeAction_,&QAction::toggled,this,[this](bool enabled){setDeveloperMode(enabled);});
-    debug->addSeparator();cpuFrequencyMenu_=debug->addMenu(tr("CPU Frequency"));cpuFrequencyMenu_->setObjectName("cpuFrequencyMenu");
+    debug->addSeparator();cpuFrequencyMenu_=debug->addMenu(tr("Force CPU Frequency"));cpuFrequencyMenu_->setObjectName("cpuFrequencyMenu");
+    currentCpuFrequency_=cpuFrequencyMenu_->addAction(tr("Current CPU frequency: —"));currentCpuFrequency_->setObjectName("currentCpuFrequency");currentCpuFrequency_->setEnabled(false);cpuFrequencyMenu_->addSeparator();
     {auto*group=new QActionGroup(this);group->setExclusive(true);const QStringList labels{tr("Automatic"),tr("4 MHz"),tr("8 MHz")};for(int i=0;i<labels.size();++i){auto*choice=cpuFrequencyMenu_->addAction(labels[i]);choice->setCheckable(true);choice->setData(i);choice->setChecked(settings_.cpuFrequency==i);group->addAction(choice);cpuFrequencyActions_[i]=choice;connect(choice,&QAction::triggered,this,[this,i]{auto next=settings_;next.cpuFrequency=i;applySettings(next);});}}
     add(debug,tr("Show Console"),{},[this]{showConsole();});clearConsoleAction_=add(debug,tr("Clear Console"),"Ctrl+K",[this]{clearConsole();});
-    breakDebuggerAction_=add(debug,tr("Break Debugger"),"Ctrl+C",[this]{showConsole();submitDebugCommand("interrupt");},true);debug->addSeparator();auto*channels=debug->addMenu(tr("Audio Channels"));channels->addAction(mute_);channels->addSeparator();
+#ifdef Q_OS_MACOS
+    // Cocoa uses the Control key (Qt's Meta) so Cmd+C stays Copy.
+    const char*breakShortcut="Meta+C";
+#else
+    const char*breakShortcut="Ctrl+C";
+#endif
+    breakDebuggerAction_=add(debug,tr("Break Debugger"),breakShortcut,[this]{showConsole();submitDebugCommand("interrupt");},true);debug->addSeparator();auto*channels=debug->addMenu(tr("Audio Channels"));channels->addAction(mute_);channels->addSeparator();
     const QStringList channelNames{tr("Channel 1 — Pulse 1"),tr("Channel 2 — Pulse 2"),tr("Channel 3 — Wave"),tr("Channel 4 — Noise")};
-    for(int i=0;i<4;++i){auto*action=add(channels,channelNames[i],{},[this]{applyDebugOptions();if(audioBuffer_)audioBuffer_->clear();},true);action->setCheckable(true);action->setChecked(true);debugChannels_[i]=action;}
+    // MainMenu.xib binds the channel toggles to Option+1..4; Qt maps Alt to Option on macOS.
+    for(int i=0;i<4;++i){auto*action=add(channels,channelNames[i],QString("Alt+%1").arg(i+1),[this]{applyDebugOptions();if(audioBuffer_)audioBuffer_->clear();},true);action->setCheckable(true);action->setChecked(true);debugChannels_[i]=action;}
     debug->addSeparator();debugBackground_=add(debug,tr("Show Background and Window"),{},[this]{applyDebugOptions();},true);debugBackground_->setCheckable(true);debugBackground_->setChecked(true);
     debugObjects_=add(debug,tr("Show Objects"),{},[this]{applyDebugOptions();},true);debugObjects_->setCheckable(true);debugObjects_->setChecked(true);debug->addSeparator();
     add(debug,tr("Show Memory"),{},[this]{showMemory();},true);add(debug,tr("Show VRAM Viewer"),{},[this]{showVram();},true);
@@ -217,7 +239,7 @@ void MainWindow::buildMenus()
         QString text;
         const QStringList labels{"Right","Left","Up","Down","A","B","Select","Start","Rapid A","Rapid B","Turbo","Rewind","Slow motion"};
         for (int i = 0; i < labels.size(); ++i) text += tr(labels[i].toUtf8().constData()) + ": " + (settings_.keys[i] ? QKeySequence(settings_.keys[i]).toString(QKeySequence::NativeText) : tr("Unassigned")) + '\n';
-        QMessageBox::information(this, tr("Controls"), text + tr("Pause: Ctrl+P\nPreferences: Ctrl+,\nSave Screenshot: Ctrl+S"));
+        QMessageBox::information(this, tr("Controls"), text + tr("Pause: %1\n%2: %3\nSave Screenshot: %4").arg(pause_->shortcut().toString(QKeySequence::NativeText),QString(preferencesAction_->text()).remove('&').remove(QChar(0x2026)),preferencesAction_->shortcut().toString(QKeySequence::NativeText),screenshotAction_->shortcut().toString(QKeySequence::NativeText)));
         pause_->setChecked(paused);
     });
     refreshMenus();
@@ -246,7 +268,7 @@ void MainWindow::refreshRecent()
     for (const auto &path : paths) {
         auto *action = recent_->addAction(QDir::toNativeSeparators(path));
         action->setEnabled(QFileInfo::exists(path));
-        connect(action, &QAction::triggered, this, [this,path] { openRom(path); });
+        connect(action, &QAction::triggered, this, [this,path] { openRequestedRom(path,this); });
     }
     if (!paths.isEmpty()) recent_->addSeparator();
     auto *clear = recent_->addAction(tr("Clear Menu")); clear->setEnabled(!paths.isEmpty());
@@ -260,7 +282,7 @@ void MainWindow::coreCommand(const std::function<QString(GB_gameboy_t *)> &comma
 }
 void MainWindow::closeCartridge()
 {
-    if(!prepareToClose())return;
+    if(!prepareToClose(true))return;
     stop(); romPath_.clear(); romSource_.clear(); storageBase_.clear();refreshToolWindows(); pause_->setChecked(false);
     gbsMode_=false;views_->setCurrentWidget(screen_);screen_->setFrame({}); setWindowTitle("SameBoy Qt[*]"); statusBar()->showMessage(tr("Ready")); refreshMenus();
 }
@@ -283,23 +305,31 @@ void MainWindow::saveState(int slot, bool load)
 {
     const auto path = stateSavePath(romPath_,slot);
     const auto legacyPath = storageBase_ + QString(".s%1").arg(slot);
+    if(load){loadStateFile(QFile::exists(path)?path:legacyPath);return;}
     const bool paused = pause_->isChecked(); pause_->setChecked(true);
-    coreCommand([path,legacyPath,load](GB_gameboy_t *gb) {
-        if (load) {
-            const auto source=QFile::exists(path)?path:legacyPath;
-            QFile file(source);QByteArray bytes;const auto readError=readStateFile(file,bytes);if(!readError.isEmpty())return readError;
-            GB_model_t model;
-            if (GB_get_state_model_from_buffer(reinterpret_cast<const uint8_t *>(bytes.constData()),bytes.size(),&model) || model != GB_get_model(gb))
-                return QObject::tr("This state is invalid or uses a different hardware revision. Select the matching model before loading it.");
-            if (loadStatePreservingOnFailure(gb,bytes)) return QObject::tr("Incompatible or invalid save state.");
-        } else {
-            QByteArray bytes(GB_get_save_state_size(gb), '\0');
-            GB_save_state_to_buffer(gb, reinterpret_cast<uint8_t *>(bytes.data()));
-            return writeFile(path, bytes);
-        }
-        return QString();
+    bool saved=false;
+    coreCommand([path,&saved](GB_gameboy_t *gb) {
+        QByteArray bytes(GB_get_save_state_size(gb), '\0');
+        GB_save_state_to_buffer(gb, reinterpret_cast<uint8_t *>(bytes.data()));
+        const auto error=writeFile(path, bytes);saved=error.isEmpty();return error;
     });
-    if(load)applyDebugOptions();
+    if(saved)screen_->showMessage(tr("State saved"));
+    if(audioBuffer_)audioBuffer_->clear(); pause_->setChecked(paused);
+}
+void MainWindow::loadStateFile(const QString&source)
+{
+    const bool paused = pause_->isChecked(); pause_->setChecked(true);
+    bool loaded=false;
+    coreCommand([source,&loaded](GB_gameboy_t *gb) {
+        QFile file(source);QByteArray bytes;const auto readError=readStateFile(file,bytes);if(!readError.isEmpty())return readError;
+        GB_model_t model;
+        if (GB_get_state_model_from_buffer(reinterpret_cast<const uint8_t *>(bytes.constData()),bytes.size(),&model) || model != GB_get_model(gb))
+            return QObject::tr("This state is invalid or uses a different hardware revision. Select the matching model before loading it.");
+        if (loadStatePreservingOnFailure(gb,bytes)) return QObject::tr("Incompatible or invalid save state.");
+        loaded=true;return QString();
+    });
+    if(loaded)screen_->showMessage(tr("State loaded"));
+    applyDebugOptions();
     if(audioBuffer_)audioBuffer_->clear(); pause_->setChecked(paused);
 }
 void MainWindow::saveScreenshot(bool choosePath)
@@ -316,7 +346,7 @@ void MainWindow::saveScreenshot(bool choosePath)
     if (!path.isEmpty()) {
         QSaveFile file(path);
         if (!file.open(QIODevice::WriteOnly) || !image.save(&file,"PNG") || !file.commit()) QMessageBox::warning(this, tr("Screenshot"), tr("Could not save %1").arg(path));
-        else { screenshotPath_ = path; statusBar()->showMessage(tr("Saved %1").arg(path), 6000); }
+        else { screenshotPath_ = path; statusBar()->showMessage(tr("Saved %1").arg(path), 6000); screen_->showMessage(tr("Screenshot saved")); }
     }
     pause_->setChecked(paused);
 }
@@ -383,6 +413,7 @@ void MainWindow::showCheatSearch()
 }
 void MainWindow::toggleVideoRecording(){
  if(videoRecorder_){stopVideoRecording();return;}if(!emulator_||gbsMode_)return;
+ const auto unavailable=VideoRecorder::availabilityError();if(!unavailable.isEmpty()){QMessageBox::warning(this,tr("Video Recording"),unavailable);return;}
  const bool wasPaused=pause_->isChecked();pause_->setChecked(true);
  const auto path=QFileDialog::getSaveFileName(this,tr("Start Video Recording"),QFileInfo(romPath_).completeBaseName()+".mp4",tr("MP4 video (*.mp4)"));
  if(path.isEmpty()){pause_->setChecked(wasPaused);return;}
@@ -406,30 +437,66 @@ void MainWindow::stopVideoRecording(){
 
 void MainWindow::toggleRecording()
 {
-    if (recording_) { stopRecording(); return; }
+    if (recording_||!vgmTarget_.isEmpty()) { stopRecording(); return; }
     const bool paused = pause_->isChecked(); pause_->setChecked(true);
-    const auto path = QFileDialog::getSaveFileName(this,tr("Start Audio Recording"),"recording.wav",tr("WAV audio (*.wav)"));
+    // Cocoa offers WAV, AIFF, raw PCM and VGM (Document.m toggleAudioRecording:/audioFormatChanged:).
+    const QStringList filters{tr("WAV audio (*.wav)"),tr("AIFF audio (*.aiff *.aif)"),tr("Raw PCM, 16-bit stereo little-endian (*.raw *.pcm)"),tr("VGM register log (*.vgm)")};
+    QString filter;auto path = QFileDialog::getSaveFileName(this,tr("Start Audio Recording"),"recording.wav",filters.join(";;"),&filter);
     if (!path.isEmpty()) {
-        auto file = std::make_unique<QSaveFile>(path);
-        if (!file->open(QIODevice::WriteOnly) || file->write(QByteArray(44,'\0')) != 44) QMessageBox::warning(this,tr("Audio Recording"),tr("Cannot create recording."));
-        else { recording_ = std::move(file); if(emulator_)emulator_->setCaptureAudio(true); recordedBytes_ = 0; record_->setText(tr("Stop Audio Recording")); }
+        const auto suffix=QFileInfo(path).suffix().toLower();
+        int format=suffix=="aiff"||suffix=="aif"?1:suffix=="raw"||suffix=="pcm"?2:suffix=="vgm"?3:suffix=="wav"?0:qMax<int>(0,filters.indexOf(filter));
+        if(format==3){
+            // The core writes VGM through fopen(); record to an ASCII temporary path and move it into place on stop.
+            const auto temporary=QDir(QDir::tempPath()).filePath(QString("sameboy-qt-%1.vgm").arg(QUuid::createUuid().toString(QUuid::Id128)));
+            const auto local=QFile::encodeName(QDir::toNativeSeparators(temporary));int error=-1;
+            if(emulator_)coreCommand([&](GB_gameboy_t*g){error=GB_start_audio_recording(g,local.constData(),GB_AUDIO_FORMAT_VGM);return QString();});
+            if(error){QMessageBox::warning(this,tr("Audio Recording"),tr("Cannot create recording."));QFile::remove(temporary);}
+            else{vgmTarget_=path;vgmTemporary_=temporary;record_->setText(tr("Stop Audio Recording"));screen_->showMessage(tr("Audio recording started"));}
+        }else{
+            auto file = std::make_unique<QSaveFile>(path);const int header=format==0?44:format==1?54:0;
+            if (!file->open(QIODevice::WriteOnly) || file->write(QByteArray(header,'\0')) != header) QMessageBox::warning(this,tr("Audio Recording"),tr("Cannot create recording."));
+            else { recording_ = std::move(file); recordingFormat_=format; if(emulator_)emulator_->setCaptureAudio(true); recordedBytes_ = 0; record_->setText(tr("Stop Audio Recording")); screen_->showMessage(tr("Audio recording started")); }
+        }
     }
     pause_->setChecked(paused);
 }
 void MainWindow::stopRecording()
 {
+    if(!vgmTarget_.isEmpty()){
+        int error=-1;if(emulator_)coreCommand([&](GB_gameboy_t*g){error=GB_stop_audio_recording(g);return QString();});
+        QFile recorded(vgmTemporary_);QByteArray bytes;QSaveFile target(vgmTarget_);
+        const bool saved=!error&&readBoundedFile(recorded,bytes,1024*1024*1024)&&target.open(QIODevice::WriteOnly)&&target.write(bytes)==bytes.size()&&target.commit();
+        recorded.close();QFile::remove(vgmTemporary_);vgmTarget_.clear();vgmTemporary_.clear();record_->setText(tr("Start Audio Recording…"));
+        if(saved)screen_->showMessage(tr("Audio recording ended"));else statusBar()->showMessage(tr("Could not finalize audio recording."),10000);
+        return;
+    }
     if (!recording_) return;
     recording_->seek(0);
-    QDataStream stream(recording_.get()); stream.setByteOrder(QDataStream::LittleEndian);
-    stream.writeRawData("RIFF",4); stream << quint32(recordedBytes_+36); stream.writeRawData("WAVEfmt ",8);
-    stream << quint32(16) << quint16(1) << quint16(2) << quint32(audioSampleRate_) << quint32(audioSampleRate_*4) << quint16(4) << quint16(16);
-    stream.writeRawData("data",4); stream << recordedBytes_;
+    if(recordingFormat_==0){
+        QDataStream stream(recording_.get()); stream.setByteOrder(QDataStream::LittleEndian);
+        stream.writeRawData("RIFF",4); stream << quint32(recordedBytes_+36); stream.writeRawData("WAVEfmt ",8);
+        stream << quint32(16) << quint16(1) << quint16(2) << quint32(audioSampleRate_) << quint32(audioSampleRate_*4) << quint16(4) << quint16(16);
+        stream.writeRawData("data",4); stream << recordedBytes_;
+    }else if(recordingFormat_==1){
+        // AIFF: FORM/COMM/SSND, 16-bit stereo, sample rate as an 80-bit IEEE extended float.
+        QDataStream stream(recording_.get()); stream.setByteOrder(QDataStream::BigEndian);
+        stream.writeRawData("FORM",4); stream << quint32(46+recordedBytes_); stream.writeRawData("AIFFCOMM",8);
+        stream << quint32(18) << quint16(2) << quint32(recordedBytes_/4) << quint16(16);
+        int exponent=0;for(quint32 rate=audioSampleRate_;rate>1;rate>>=1)++exponent;
+        stream << quint16(16383+exponent) << (quint64(audioSampleRate_)<<(63-exponent));
+        stream.writeRawData("SSND",4); stream << quint32(8+recordedBytes_) << quint32(0) << quint32(0);
+    }
     if (!recording_->commit()) statusBar()->showMessage(tr("Could not finalize audio recording."),10000);
+    else screen_->showMessage(tr("Audio recording ended"));
     recording_.reset(); if(emulator_)emulator_->setCaptureAudio(gbsMode_); recordedBytes_ = 0; record_->setText(tr("Start Audio Recording…"));
 }
 
 void MainWindow::showGameContextMenu(const QPoint&position){
-    clearInput();QMenu menu(this);menu.setObjectName("gameContextMenu");menu.addAction(openRomAction_);menu.addAction(showMenuBar_);menu.addSeparator();
+    clearInput();QMenu menu(this);menu.setObjectName("gameContextMenu");menu.addAction(openRomAction_);
+#ifndef Q_OS_MACOS
+    menu.addAction(showMenuBar_);
+#endif
+    menu.addSeparator();
     menu.addAction(pause_);menu.addAction(resetAction_);menu.addMenu(modelMenu_);menu.addMenu(saveStateMenu_);menu.addMenu(loadStateMenu_);menu.addSeparator();
     auto*video=menu.addMenu(tr("Video"));video->setObjectName("gameVideo");
         auto choices=[&](QMenu*target,int current,std::initializer_list<std::pair<QString,int>> items,std::function<void(AppSettings&,int)> change){auto*group=new QActionGroup(target);for(const auto&entry:items){auto*action=target->addAction(entry.first);action->setCheckable(true);action->setChecked(entry.second==current);action->setData(entry.second);group->addAction(action);connect(action,&QAction::triggered,&menu,[this,change,id=entry.second]{auto settings=settings_;change(settings,id);applySettings(settings);});}};
@@ -448,8 +515,12 @@ void MainWindow::showGameContextMenu(const QPoint&position){
     auto toggle=[&](QMenu*target,const QString&name,const QString&id,bool checked,std::function<void(AppSettings&,bool)>change){auto*action=target->addAction(name);action->setObjectName(id);action->setCheckable(true);action->setChecked(checked);connect(action,&QAction::triggered,&menu,[this,change](bool on){auto settings=settings_;change(settings,on);applySettings(settings);});};
     video->addSeparator();toggle(video,tr("Keep aspect ratio"),"gameAspect",settings_.aspect,[](AppSettings&s,bool value){s.aspect=value;});toggle(video,tr("Force integer scale"),"gameIntegerScale",settings_.integerScale,[](AppSettings&s,bool value){s.integerScale=value;});
     auto*audio=menu.addMenu(tr("Audio"));audio->setObjectName("gameAudio");audio->addAction(mute_);auto*volume=audio->addMenu(tr("Volume"));volume->setObjectName("gameVolume");
-    choices(volume,settings_.volume,{{"25%",25},{"50%",50},{"75%",75},{"100%",100}},[](AppSettings&s,int value){s.volume=value;});
-    auto*window=menu.addMenu(tr("Window"));window->setObjectName("gameWindow");fullScreenAction_->setText(isFullScreen()?tr("Exit Full Screen"):tr("Enter Full Screen"));fullScreenAction_->setChecked(isFullScreen());window->addAction(fullScreenAction_);window->addAction(showMenuBar_);window->addAction(showStatusBar_);
+    choices(volume,settings_.volume,{{"10%",10},{"25%",25},{"50%",50},{"75%",75},{"100%",100}},[](AppSettings&s,int value){s.volume=value;});
+    auto*window=menu.addMenu(tr("Window"));window->setObjectName("gameWindow");fullScreenAction_->setText(isFullScreen()?tr("Exit Full Screen"):tr("Enter Full Screen"));fullScreenAction_->setChecked(isFullScreen());window->addAction(fullScreenAction_);
+#ifndef Q_OS_MACOS
+    window->addAction(showMenuBar_);
+#endif
+    window->addAction(showStatusBar_);
     menu.addMenu(cheatsMenu_);menu.addMenu(connectMenu_);menu.addMenu(debugMenu_);
     menu.addSeparator();menu.addAction(screenshotAction_);menu.addAction(videoRecordAction_);menu.addAction(preferencesAction_);
     menu.exec(position);menuBar()->setActiveAction(nullptr);screen_->setFocus(Qt::MouseFocusReason);

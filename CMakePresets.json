@@ -5,7 +5,7 @@
       "name": "windows-arm64",
       "displayName": "Windows ARM64 (ClangCL + Qt 6)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-arm64",
+      "binaryDir": "${sourceDir}/build-windows-arm64",
       "architecture": {
         "value": "arm64",
         "strategy": "external"

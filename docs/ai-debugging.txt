@@ -1,5 +1,15 @@
 SameBoy Qt 通用调试接口（协议版本 1）
 
+支持 Windows、macOS 和 Linux，协议和方法完全相同。下文以 sameboy-qt.exe 指代主程序，各平台的实际路径：
+  Windows：包内 bin\sameboy-qt.exe
+  macOS：sameboy-qt.app/Contents/MacOS/sameboy-qt（直接运行这个文件；用 open 启动已在运行的程序时，参数不会传给它）
+  Linux：安装目录的 bin/sameboy-qt；AppImage 版直接运行 AppImage 文件
+IPC 传输：Windows 用命名管道，macOS 和 Linux 用 Unix 域套接字（位于系统临时目录），都限于当前用户。
+示例脚本 examples/sameboy.py、play_example.py 与平台无关，把对应路径传给它们即可。
+
+验证情况：macOS 上用本机构建的 app 跑通了 play_example.py 和 rpc.discover，自动化测试在 macOS 上通过；
+Linux 的自动化测试在 Xvfb 虚拟显示下通过（含跨进程 --rpc）；Windows x64 包由交叉编译产生，尚未在 Windows 上运行。真实 Linux 桌面和 AppImage 作为 --rpc 客户端没有单独验证。
+
 启用方式
 启动 sameboy-qt.exe --debug-server [ROM路径] 启用接口；已有进程运行时会通过 IPC 通知它启用。
 默认关闭，不记住服务启用状态，没有专用菜单项。启用时会开启原生 Developer Mode。
@@ -13,8 +23,12 @@ SameBoy Qt 通用调试接口（协议版本 1）
   sameboy-qt.exe --rpc debug.break
   sameboy-qt.exe --rpc debug.command '{"command":"step"}'
   sameboy-qt.exe --rpc memory.read '{"address":49152,"count":16}'
-在 PowerShell 中，避免旧版本原生命令参数转义问题，可使用标准输入：
-  '{"jsonrpc":"2.0","id":1,"method":"debug.status","params":{}}' | .\sameboy-qt.exe --rpc --stdin
+参数里的 JSON 需要按所用 shell 引用：
+  macOS / Linux（bash、zsh）：用单引号包住 JSON，如上所示，不需要额外转义。
+  Windows PowerShell：旧版本的原生命令参数转义有问题，可改用标准输入：
+    '{"jsonrpc":"2.0","id":1,"method":"debug.status","params":{}}' | .\sameboy-qt.exe --rpc --stdin
+  Windows cmd：JSON 里的双引号需要写成 \"，或同样改用 --stdin。
+  --stdin 在三个系统上都可用，需要避开转义时可统一使用。
 可通过 --endpoint NAME 指定端点。退出码 0 成功，1 RPC 错误，2 连接/客户端错误。
 CLI 参数使用 UTF-8 JSON；直接接入时每行发送一个 JSON-RPC 2.0 对象并读取一行响应。
 请求必须有 string/number id，params 必须为对象，不支持无 id 通知或批量数组。
@@ -76,7 +90,7 @@ ROM 通过 GUI、拖放或启动程序参数打开；接口本身没有任意文
   sameboy-qt.exe --rpc infrared.status '{"window":"WINDOW_A"}'
   sameboy-qt.exe --rpc printer.connect '{"window":"WINDOW_A"}'
   sameboy-qt.exe --rpc printer.capture '{"window":"WINDOW_A"}'
-Windows PowerShell 参数转义有差异时，使用前文的 --stdin JSON 请求方式。
+在 Windows PowerShell 或 cmd 中参数转义有差异时，使用前文的 --stdin JSON 请求方式；macOS 和 Linux 直接用单引号即可。
 
 原子逐帧操作（推荐用于自动化玩游戏）
   sameboy-qt.exe --rpc emulation.step '{"frames":8,"buttons":["right","a"]}'
@@ -93,7 +107,9 @@ Python 只提供标准库薄示例，不是另一套模拟器或完整 SDK：
   examples/play_example.py
 启动 --debug-server 后，可写：
   from sameboy import SameBoy
-  game = SameBoy("C:/path/sameboy-qt.exe").window()
+  game = SameBoy("C:/path/sameboy-qt.exe").window()   # Windows
+  # SameBoy("/path/sameboy-qt.app/Contents/MacOS/sameboy-qt")  # macOS
+  # SameBoy("/path/bin/sameboy-qt")  或 AppImage 文件路径  # Linux
   game.step(buttons=["a"], frames=8).save("step.png")
   data = game.read_memory(0xC123, size=16)
 多个窗口时，window(id) 指定 windows.list 给出的窗口 ID。对象保留原 generation，换 ROM 后旧对象返回错误。

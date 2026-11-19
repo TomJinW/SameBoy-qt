@@ -12,6 +12,9 @@ Archive: `sameboy_winsdl_v1.0.4.zip`
 Archive SHA-256 (verified against the release's `SHA2-256SUMS`):
 `777a29211e17443435dd0956b7ab775e6e9f40ee859ed4f2f14b43f7587d5a38`
 
+SameBoy v1.0.5 did not change `BootROMs/` (`git diff v1.0.4 v1.0.5 -- BootROMs` is empty), so these files
+are also the v1.0.5 boot ROMs.
+
 The Expat license in `SameBoy/LICENSE` covers these files. They are embedded
 with Qt resources, so users do not need to find or install boot ROM files.
 They cover DMG, MGB, CGB, CGB 0, SGB, SGB2 and AGB hardware.
