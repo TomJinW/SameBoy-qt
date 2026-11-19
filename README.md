@@ -10,7 +10,7 @@ A cross-platform Game Boy / Game Boy Color emulator: a Qt 6 frontend for the acc
 Get the latest build from the [Releases](https://github.com/TomJinW/SameBoy-qt/releases) page:
 
 - **Windows x64** — unpack the folder and run `bin/sameboy-qt.exe` (portable: settings are kept beside the program).
-- **macOS (Apple Silicon)** — `sameboy-qt.app`. It is not notarized, so on first launch use right-click → Open.
+- **macOS (Apple Silicon)** — `sameboy-qt.app`. It is not notarized, use xattr -cr sameboy-qt.app to remove com.apple.quarantine .
 - **Linux x64 / arm64** — an AppImage; make it executable (`chmod +x`) and run it.
 
 No game ROMs are included; open your own `.gb` / `.gbc` files. Open-source boot ROMs are built in, so no
