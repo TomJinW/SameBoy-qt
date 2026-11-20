@@ -4,6 +4,8 @@ set(sameboy_filter_keys NearestNeighbor Bilinear LCD Pixelated SmoothBilinear Mo
 set(sameboy_shader_dir "${PROJECT_BINARY_DIR}/shaders")
 file(MAKE_DIRECTORY "${sameboy_shader_dir}")
 set(sameboy_shader_outputs)
+# Cover desktop OpenGL 3.1 (including Raspberry Pi) and OpenGL 3.2.
+set(sameboy_shader_glsl "140,150")
 foreach(key IN LISTS sameboy_filter_keys)
     set(source "${PROJECT_SOURCE_DIR}/SameBoy/Shaders/${key}.fsh")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
@@ -11,13 +13,13 @@ foreach(key IN LISTS sameboy_filter_keys)
     set(fragment "${sameboy_shader_dir}/${key}.frag")
     configure_file("${PROJECT_SOURCE_DIR}/resources/shaders/filter.frag.in" "${fragment}" @ONLY)
     add_custom_command(OUTPUT "${fragment}.qsb"
-        COMMAND "${SAMEBOY_QSB}" --glsl 150 --hlsl 50 --msl 12 -o "${fragment}.qsb" "${fragment}"
+        COMMAND "${SAMEBOY_QSB}" --glsl "${sameboy_shader_glsl}" --hlsl 50 --msl 12 -o "${fragment}.qsb" "${fragment}"
         DEPENDS "${fragment}" "${source}" VERBATIM)
     list(APPEND sameboy_shader_outputs "${fragment}.qsb")
 endforeach()
 configure_file("${PROJECT_SOURCE_DIR}/resources/shaders/quad.vert" "${sameboy_shader_dir}/quad.vert" COPYONLY)
 add_custom_command(OUTPUT "${sameboy_shader_dir}/quad.vert.qsb"
-    COMMAND "${SAMEBOY_QSB}" --glsl 150 --hlsl 50 --msl 12 -o "${sameboy_shader_dir}/quad.vert.qsb" "${sameboy_shader_dir}/quad.vert"
+    COMMAND "${SAMEBOY_QSB}" --glsl "${sameboy_shader_glsl}" --hlsl 50 --msl 12 -o "${sameboy_shader_dir}/quad.vert.qsb" "${sameboy_shader_dir}/quad.vert"
     DEPENDS "${sameboy_shader_dir}/quad.vert" VERBATIM)
 list(APPEND sameboy_shader_outputs "${sameboy_shader_dir}/quad.vert.qsb")
 add_custom_target(sameboy-shaders DEPENDS ${sameboy_shader_outputs})

@@ -14,9 +14,17 @@ int main(int argc,char **argv){QGuiApplication app(argc,argv);QImage frame(32,32
     frame.setPixel(0,0,qRgb(255,0,0));frame.setPixel(31,31,qRgb(0,0,255));
     for(const auto&name:QDir(":/filters").entryList({"*.qsb"},QDir::Files)){
         QFile file(":/filters/"+name);if(!file.open(QIODevice::ReadOnly))return 1;
-        const auto shader=QShader::fromSerialized(file.readAll());bool metal=false;
-        for(const auto&key:shader.availableShaders())if(key.source()==QShader::MslShader)metal=true;
+        const auto shader=QShader::fromSerialized(file.readAll());bool metal=false,desktop=false,gl31=false;
+        for(const auto&key:shader.availableShaders()){
+            if(key.source()==QShader::MslShader)metal=true;
+            if(key.source()==QShader::GlslShader){
+                const auto version=key.sourceVersion();
+                if(version.version()==150&&!version.flags().testFlag(QShaderVersion::GlslEs))desktop=true;
+                if(version.version()==140&&!version.flags().testFlag(QShaderVersion::GlslEs))gl31=true;
+            }
+        }
         if(!metal){std::fprintf(stderr,"Missing Metal shader: %s\n",qPrintable(name));return 1;}
+        if(!desktop||!gl31){std::fprintf(stderr,"Missing desktop GLSL 140/150 shader: %s\n",qPrintable(name));return 1;}
     }
     QSet<QByteArray> hashes;
     for(int filter=0;filter<16;++filter){QString error;const auto image=renderFilteredImage(frame,{},QSize(160,160),filter,0,&error);
