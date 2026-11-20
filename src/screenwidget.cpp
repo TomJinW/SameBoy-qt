@@ -27,7 +27,11 @@ ScreenWidget::ScreenWidget(QWidget *parent) : QWidget(parent), gpu_(new GpuScree
     overlay_->setStyleSheet("QLabel { color: white; background: rgba(0,0,0,180); padding: 4px 8px; }");
     overlay_->setAttribute(Qt::WA_TransparentForMouseEvents);
     gpu_->failed=[this](QString error) {
-        QTimer::singleShot(0,this,[this,error] {gpuFailed_=true;gpuError_=error;gpu_->hide();updateGpu();update();});
+        QTimer::singleShot(0,this,[this,error] {// Render failures can be reported on every frame: only the first error is shown, so alternating messages cannot restart the timer.
+            const bool repeated=gpuFailed_;
+            gpuFailed_=true;gpu_->hide();
+            if(!repeated){gpuError_=error;gpuErrorClock_.start();QTimer::singleShot(gpuErrorDuration_+10,this,[this]{updateGpu();});}
+            updateGpu();update();});
     };
 }
 void ScreenWidget::setSettings(const AppSettings &settings) {settings_=settings;updateGpu();update();}
@@ -72,8 +76,10 @@ void ScreenWidget::updateGpu()
     if(visible)gpu_->setFrames(frame_,previous_,settings_.scaling,blendingMode());
     overlay_->setFont(settings_.monospace);
     const bool message=!message_.isEmpty()&&messageClock_.isValid()&&messageClock_.elapsed()<messageDuration_;
-    overlay_->setText(gpuFailed_?gpuError_:message?message_:tr("%1 fps").arg(fps_,0,'f',1));overlay_->adjustSize();overlay_->move(8,8);
-    overlay_->setVisible(!frame_.isNull()&&(settings_.osd||gpuFailed_));overlay_->raise();
+    // The GPU error is shown for a few seconds only; the software renderer keeps running afterwards.
+    const bool gpuErrorShown=gpuFailed_&&gpuErrorClock_.isValid()&&gpuErrorClock_.elapsed()<gpuErrorDuration_;
+    overlay_->setText(gpuErrorShown?gpuError_:message?message_:tr("%1 fps").arg(fps_,0,'f',1));overlay_->adjustSize();overlay_->move(8,8);
+    overlay_->setVisible(!frame_.isNull()&&(settings_.osd||gpuErrorShown));overlay_->raise();
 }
 void ScreenWidget::resizeEvent(QResizeEvent *event){QWidget::resizeEvent(event);updateGpu();}
 // Cocoa GBOSDView displayText: shows an event for 2.5 s (4 s longer for multi-line text) when the OSD is enabled.

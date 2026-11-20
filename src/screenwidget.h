@@ -36,6 +36,8 @@ private:
     QWidget *emptyPage_;
     bool odd_=false,sgb_=false,gpuFailed_=false;
     QString gpuError_,message_;
+    QElapsedTimer gpuErrorClock_;
+    static constexpr int gpuErrorDuration_=6000;
     QElapsedTimer messageClock_;
     int messageDuration_=0;
     int blendingMode() const;
